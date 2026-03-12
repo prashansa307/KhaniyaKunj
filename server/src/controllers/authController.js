@@ -119,6 +119,11 @@ const login = asyncHandler(async (req, res) => {
 
   const normalizedEmail = email.toLowerCase().trim();
   const user = await User.findOne({ email: normalizedEmail, isDeleted: { $ne: true } });
+  const normalizedStatus = String(user?.status || '').trim().toLowerCase();
+
+  if (user && (normalizedStatus === 'inactive' || (!normalizedStatus && user.isActive === false))) {
+    return res.status(403).json({ message: 'Your account has been temporary deactivated please contact admin.' });
+  }
 
   const activeState = isUserActiveState(user);
   if (!user || !activeState) {

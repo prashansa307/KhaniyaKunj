@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiCheckCircle, FiEdit2, FiHome, FiPlusCircle, FiRefreshCw, FiUserCheck, FiUserX } from 'react-icons/fi';
+import { FiCheckCircle, FiEdit2, FiHome, FiPlusCircle, FiRefreshCw, FiTrash2, FiUserCheck, FiUserX } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import EditPopup from '../components/EditPopup.jsx';
 
 const UNIT_TYPES = ['1BHK', '2BHK', '3BHK', 'Villa', 'Other'];
 const UNIT_STATUSES = ['VACANT', 'OCCUPIED', 'INACTIVE'];
@@ -10,9 +11,9 @@ const UNIT_STATUSES = ['VACANT', 'OCCUPIED', 'INACTIVE'];
 const EMPTY_FORM = {
   wing: '',
   flatNumber: '',
-  floor: 0,
-  unitType: '2BHK',
-  status: 'VACANT',
+  floor: '',
+  unitType: '',
+  status: '',
 };
 
 function SummaryCard({ label, value }) {
@@ -41,9 +42,10 @@ function UnitManagementPage() {
 
   const [assignState, setAssignState] = useState({ open: false, unitId: '', residentId: '' });
   const [vacateState, setVacateState] = useState({ open: false, unitId: '' });
+  const [deleteState, setDeleteState] = useState({ open: false, unitId: '', label: '' });
 
   async function loadResidents() {
-    const payload = await apiRequest('/api/users?role=resident&limit=500', { raw: true });
+    const payload = await apiRequest('/api/users?role=resident&limit=100', { raw: true });
     setResidents(payload?.data || []);
   }
 
@@ -89,8 +91,8 @@ function UnitManagementPage() {
       wing: unit.wing || '',
       flatNumber: unit.flatNumber || unit.unitNumber || '',
       floor: Number(unit.floor ?? unit.floorNumber ?? 0),
-      unitType: unit.unitType || '2BHK',
-      status: unit.status || 'VACANT',
+      unitType: unit.unitType || '',
+      status: unit.status || '',
     });
   }
 
@@ -107,8 +109,8 @@ function UnitManagementPage() {
         wing: String(form.wing || '').trim().toUpperCase(),
         flatNumber: String(form.flatNumber || '').trim().toUpperCase(),
         floor: Number(form.floor || 0),
-        unitType: form.unitType,
-        status: form.status,
+        unitType: form.unitType || '2BHK',
+        status: form.status || 'VACANT',
       };
       if (!body.flatNumber) {
         showToast('Flat number is required.', 'error');
@@ -163,6 +165,19 @@ function UnitManagementPage() {
     }
   }
 
+  async function deleteUnit() {
+    try {
+      if (!deleteState.unitId) return;
+      await apiRequest(`/api/units/${deleteState.unitId}`, { method: 'DELETE', raw: true });
+      setDeleteState({ open: false, unitId: '', label: '' });
+      showToast('Unit deleted successfully.', 'success');
+      await Promise.all([loadSummary(), loadUnits()]);
+    } catch (err) {
+      showToast(err.message || 'Failed to delete unit.', 'error');
+      setDeleteState({ open: false, unitId: '', label: '' });
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-slate-500 dark:text-slate-400">Loading unit management...</p>;
   }
@@ -171,7 +186,7 @@ function UnitManagementPage() {
     <div className="space-y-5">
       <section className="rounded-3xl border border-cyan-200/70 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-700">Admin Panel</p>
-        <h2 className="mt-1 text-3xl font-semibold text-slate-900">Unit Management</h2>
+        <h2 className="mt-1 text-3xl font-semibold text-slate-900">Unit Inventory & Allocation</h2>
         <p className="mt-1 text-sm text-slate-600">Master inventory of flats/units, occupancy status, and resident assignment.</p>
       </section>
 
@@ -182,18 +197,46 @@ function UnitManagementPage() {
         <SummaryCard label="Inactive" value={summary.inactiveUnits || 0} />
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-        <h3 className="text-lg font-semibold text-slate-900">{editingUnitId ? 'Edit Unit' : 'Create Unit'}</h3>
-        <form onSubmit={submitUnit} className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <input value={form.wing} onChange={(e) => setForm((prev) => ({ ...prev, wing: e.target.value }))} placeholder="Wing / Tower" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-          <input value={form.flatNumber} onChange={(e) => setForm((prev) => ({ ...prev, flatNumber: e.target.value }))} placeholder="Flat Number" required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-          <input type="number" min="0" value={form.floor} onChange={(e) => setForm((prev) => ({ ...prev, floor: e.target.value }))} placeholder="Floor" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-          <select value={form.unitType} onChange={(e) => setForm((prev) => ({ ...prev, unitType: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+      <div className="grid gap-5 xl:grid-cols-[420px,1fr] xl:items-start">
+      <section className="xl:sticky xl:top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+        <h3 className="text-lg font-semibold text-slate-900">Create Unit</h3>
+        <form onSubmit={submitUnit} className="mt-3 grid gap-3 md:grid-cols-2">
+          <input value={form.wing} onChange={(e) => setForm((prev) => ({ ...prev, wing: e.target.value }))} placeholder="Wing / Tower (e.g. A)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <input value={form.flatNumber} onChange={(e) => setForm((prev) => ({ ...prev, flatNumber: e.target.value }))} placeholder="Flat Number (e.g. 101)" required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <input type="number" min="0" value={form.floor} onChange={(e) => setForm((prev) => ({ ...prev, floor: e.target.value }))} placeholder="Floor (e.g. 1)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <select value={form.unitType} onChange={(e) => setForm((prev) => ({ ...prev, unitType: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required>
+            <option value="" disabled>Select Unit Type</option>
             {UNIT_TYPES.map((type) => (
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
-          <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+          <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required>
+            <option value="" disabled>Select Status</option>
+            {UNIT_STATUSES.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+          <div className="md:col-span-2 flex flex-wrap gap-2">
+            <button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-60">
+              <FiPlusCircle />
+              {saving ? 'Saving...' : 'Create Unit'}
+            </button>
+          </div>
+        </form>
+      </section>
+      <EditPopup open={Boolean(editingUnitId)} title="Edit Unit" onClose={resetForm} maxWidthClass="max-w-4xl">
+        <form onSubmit={submitUnit} className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <input value={form.wing} onChange={(e) => setForm((prev) => ({ ...prev, wing: e.target.value }))} placeholder="Wing / Tower (e.g. A)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <input value={form.flatNumber} onChange={(e) => setForm((prev) => ({ ...prev, flatNumber: e.target.value }))} placeholder="Flat Number (e.g. 101)" required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <input type="number" min="0" value={form.floor} onChange={(e) => setForm((prev) => ({ ...prev, floor: e.target.value }))} placeholder="Floor (e.g. 1)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <select value={form.unitType} onChange={(e) => setForm((prev) => ({ ...prev, unitType: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required>
+            <option value="" disabled>Select Unit Type</option>
+            {UNIT_TYPES.map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+          <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required>
+            <option value="" disabled>Select Status</option>
             {UNIT_STATUSES.map((status) => (
               <option key={status} value={status}>{status}</option>
             ))}
@@ -201,19 +244,17 @@ function UnitManagementPage() {
           <div className="md:col-span-2 xl:col-span-5 flex flex-wrap gap-2">
             <button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-60">
               <FiPlusCircle />
-              {saving ? 'Saving...' : editingUnitId ? 'Update Unit' : 'Create Unit'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
-            {editingUnitId && (
-              <button type="button" onClick={resetForm} className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200">
-                Cancel Edit
-              </button>
-            )}
+            <button type="button" onClick={resetForm} className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+              Cancel
+            </button>
           </div>
         </form>
-      </section>
+      </EditPopup>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      <section className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="classy-list-toolbar mb-3 flex flex-wrap items-center gap-2">
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search wing/flat" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
             <option value="">All status</option>
@@ -226,7 +267,7 @@ function UnitManagementPage() {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/80 p-2">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
@@ -274,6 +315,13 @@ function UnitManagementPage() {
                           <FiUserX size={12} /> Mark Vacant
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setDeleteState({ open: true, unitId: unit._id, label: unit.flatNumber || unit.unitNumber || 'this unit' })}
+                        className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-xs font-semibold text-white"
+                      >
+                        <FiTrash2 size={12} /> Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -281,10 +329,11 @@ function UnitManagementPage() {
             </tbody>
           </table>
           {!units.length ? (
-            <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No units found.</div>
+            <div className="classy-list-note rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No units found.</div>
           ) : null}
         </div>
       </section>
+      </div>
 
       <ConfirmModal
         open={assignState.open}
@@ -316,6 +365,15 @@ function UnitManagementPage() {
         confirmLabel="Mark Vacant"
         onCancel={() => setVacateState({ open: false, unitId: '' })}
         onConfirm={vacateUnit}
+      />
+
+      <ConfirmModal
+        open={deleteState.open}
+        title="Delete Unit"
+        description={`Do you want to delete ${deleteState.label}?`}
+        confirmLabel="Delete"
+        onCancel={() => setDeleteState({ open: false, unitId: '', label: '' })}
+        onConfirm={deleteUnit}
       />
     </div>
   );

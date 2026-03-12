@@ -161,7 +161,7 @@ function PollsPage() {
     <div className="app-fade-up space-y-4">
       <section className="saas-card rounded-2xl border border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-cyan-50 p-4 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-700 dark:text-violet-300">Community Polling</p>
-        <h2 className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">Society Opinion Board</h2>
+        <h2 className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">Community Polls & Feedback</h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
           Active polls: <span className="font-semibold">{activeCount}</span>
         </p>
@@ -171,14 +171,14 @@ function PollsPage() {
         <AppCard className="p-3">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">Create Poll</h3>
           <form onSubmit={submitPoll} className="mt-2 grid gap-2 md:grid-cols-2">
-            <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Poll title" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Enter poll title" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             <input value={form.startAt} onChange={(e) => setForm((prev) => ({ ...prev, startAt: e.target.value }))} type="datetime-local" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             <input value={form.endAt} onChange={(e) => setForm((prev) => ({ ...prev, endAt: e.target.value }))} type="datetime-local" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             <textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Poll description (optional)" className="md:col-span-2 min-h-20 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
-            <input value={form.optionA} onChange={(e) => setForm((prev) => ({ ...prev, optionA: e.target.value }))} placeholder="Option 1" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
-            <input value={form.optionB} onChange={(e) => setForm((prev) => ({ ...prev, optionB: e.target.value }))} placeholder="Option 2" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
-            <input value={form.optionC} onChange={(e) => setForm((prev) => ({ ...prev, optionC: e.target.value }))} placeholder="Option 3 (optional)" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
-            <input value={form.optionD} onChange={(e) => setForm((prev) => ({ ...prev, optionD: e.target.value }))} placeholder="Option 4 (optional)" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.optionA} onChange={(e) => setForm((prev) => ({ ...prev, optionA: e.target.value }))} placeholder="Enter option 1" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.optionB} onChange={(e) => setForm((prev) => ({ ...prev, optionB: e.target.value }))} placeholder="Enter option 2" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.optionC} onChange={(e) => setForm((prev) => ({ ...prev, optionC: e.target.value }))} placeholder="Enter option 3 (optional)" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.optionD} onChange={(e) => setForm((prev) => ({ ...prev, optionD: e.target.value }))} placeholder="Enter option 4 (optional)" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             <AppButton type="submit" disabled={saving} className="md:col-span-2 md:w-fit">
               <FiPlusCircle size={14} />
               {saving ? 'Creating...' : 'Create Poll'}
@@ -284,3 +284,4 @@ function PollsPage() {
 }
 
 export default PollsPage;
+

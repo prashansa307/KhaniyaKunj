@@ -4,6 +4,7 @@ import { FiCheckCircle, FiFilter, FiImage, FiMapPin, FiPackage, FiPlusCircle, Fi
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { readImageAsDataUrl } from '../utils/imageUpload.js';
 
 const STATUS_STYLE = {
   FOUND: 'bg-amber-100 text-amber-700',
@@ -17,6 +18,33 @@ function StatusBadge({ status }) {
 function formatDate(value) {
   if (!value) return '-';
   return new Date(value).toLocaleDateString();
+}
+
+function resolveImageSource(value) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  if (source.startsWith('data:image/')) return source;
+  if (source.startsWith('http://') || source.startsWith('https://')) return source;
+  if (source.startsWith('{') || source.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(source);
+      if (parsed && typeof parsed === 'object') {
+        const candidates = [
+          parsed.url,
+          parsed.secure_url,
+          parsed.image,
+          parsed.src,
+          parsed.fileUrl,
+          parsed.path,
+        ];
+        const match = candidates.find((item) => typeof item === 'string' && (item.startsWith('data:image/') || item.startsWith('http://') || item.startsWith('https://')));
+        if (match) return match;
+      }
+    } catch {
+      return '';
+    }
+  }
+  return '';
 }
 
 function LostFoundPage() {
@@ -36,6 +64,7 @@ function LostFoundPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [withPhotoOnly, setWithPhotoOnly] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState('');
+  const [previewImage, setPreviewImage] = useState('');
   const [form, setForm] = useState({
     itemName: '',
     description: '',
@@ -71,11 +100,13 @@ function LostFoundPage() {
 
   async function onUploadImage(file) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((prev) => ({ ...prev, image: String(reader.result || '') }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const imageDataUrl = await readImageAsDataUrl(file);
+      setForm((prev) => ({ ...prev, image: imageDataUrl }));
+      showToast('Photo attached successfully.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to attach photo.', 'error');
+    }
   }
 
   async function postLostItem(event) {
@@ -150,7 +181,7 @@ function LostFoundPage() {
         .toLowerCase()
         .includes(q || '')
     );
-    const photoFiltered = withPhotoOnly ? base.filter((item) => Boolean(item.image)) : base;
+    const photoFiltered = withPhotoOnly ? base.filter((item) => Boolean(resolveImageSource(item.image))) : base;
     return photoFiltered;
   }, [items, search, withPhotoOnly]);
 
@@ -177,6 +208,15 @@ function LostFoundPage() {
     });
   }
 
+  function openImagePreview(source) {
+    const safe = resolveImageSource(source);
+    if (!safe) {
+      showToast('Image source is invalid or missing.', 'error');
+      return;
+    }
+    setPreviewImage(safe);
+  }
+
   return (
     <div className="relative space-y-5">
       <div className="pointer-events-none absolute -top-8 left-8 h-36 w-36 rounded-full bg-emerald-200/45 blur-3xl" />
@@ -191,7 +231,7 @@ function LostFoundPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">Lost & Found</p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Society Lost Item Registry</h2>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Lost & Found Item Management</h2>
             <p className="mt-1 text-sm text-slate-600">Track found items with photos, claim flow, and live updates.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -236,8 +276,9 @@ function LostFoundPage() {
         </div>
       </motion.section>
 
+      <div className={`${isGuard ? 'grid gap-5 xl:grid-cols-[420px,1fr] xl:items-start' : ''}`}>
       {isGuard && (
-        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onSubmit={postLostItem} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onSubmit={postLostItem} className="xl:sticky xl:top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-slate-900">Post Found Item</h3>
             <button
@@ -251,12 +292,12 @@ function LostFoundPage() {
           </div>
           <p className="mt-1 text-sm text-slate-500">Add details so residents and management can identify the item quickly.</p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <input value={form.itemName} onChange={(e) => setForm((prev) => ({ ...prev, itemName: e.target.value }))} placeholder="Item Name" required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            <input value={form.locationFound} onChange={(e) => setForm((prev) => ({ ...prev, locationFound: e.target.value }))} placeholder="Location Found" required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            <input value={form.itemName} onChange={(e) => setForm((prev) => ({ ...prev, itemName: e.target.value }))} placeholder="Enter item name" required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            <input value={form.locationFound} onChange={(e) => setForm((prev) => ({ ...prev, locationFound: e.target.value }))} placeholder="Enter location where item was found" required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
             <input type="date" value={form.dateFound} onChange={(e) => setForm((prev) => ({ ...prev, dateFound: e.target.value }))} required className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            <input value={form.image} onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Photo URL (optional)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            <input value={form.image} onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL (optional, use upload below)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
           </div>
-          <textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" className="mt-3 min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Enter item description" className="mt-3 min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
           <textarea value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Notes (optional)" className="mt-3 min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
           <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-600">
             <FiUploadCloud />
@@ -265,15 +306,27 @@ function LostFoundPage() {
           </label>
           {form.image ? (
             <div className="mt-3 rounded-xl border border-slate-200 p-2">
-              <img src={form.image} alt="Preview" className="h-28 w-full rounded-lg object-cover" />
-              <button
-                type="button"
-                onClick={() => setForm((prev) => ({ ...prev, image: '' }))}
-                className="mt-2 inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-              >
-                <FiX />
-                Remove Photo
+              <button type="button" onClick={() => openImagePreview(form.image)} className="w-full text-left">
+                <img src={form.image} alt="Preview" className="h-28 w-full rounded-lg object-cover" />
               </button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => openImagePreview(form.image)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                >
+                  <FiImage />
+                  View Full Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, image: '' }))}
+                  className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                >
+                  <FiX />
+                  Remove Photo
+                </button>
+              </div>
             </div>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
@@ -289,7 +342,12 @@ function LostFoundPage() {
         </motion.form>
       )}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-4 shadow-panel">
+        <div className="classy-list-toolbar mb-3 flex flex-wrap items-center gap-2">
+          <h3 className="mr-auto text-lg font-semibold text-slate-900">Found Item Board</h3>
+          <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{visibleItems.length} items</span>
+        </div>
+        <div className="classy-list-grid grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           <>
             <div className="h-44 animate-pulse rounded-2xl bg-slate-200" />
@@ -297,12 +355,14 @@ function LostFoundPage() {
             <div className="h-44 animate-pulse rounded-2xl bg-slate-200" />
           </>
         ) : (
-          visibleItems.map((item) => (
+          visibleItems.map((item) => {
+            const safeImage = resolveImageSource(item.image);
+            return (
             <motion.article
               key={item._id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-2xl border bg-white p-4 shadow-panel transition ${selectedItemId && selectedItemId === String(item._id) ? 'border-emerald-300 ring-2 ring-emerald-200' : 'border-slate-200'}`}
+              className={`classy-list-card rounded-2xl border bg-white p-4 shadow-panel transition ${selectedItemId && selectedItemId === String(item._id) ? 'border-emerald-300 ring-2 ring-emerald-200' : 'border-slate-200'}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-lg font-semibold text-slate-900">{item.itemName}</h3>
@@ -315,12 +375,14 @@ function LostFoundPage() {
               <p className="mt-1 text-xs text-slate-500">Found By: {item.foundByGuard?.name || '-'}</p>
               <p className="mt-1 text-xs text-slate-500">Claimed By: {item.claimedBy?.name || '-'}</p>
               {item.notes ? <p className="mt-2 text-xs text-slate-600">Notes: {item.notes}</p> : null}
-              {item.image ? (
+              {safeImage ? (
                 <div className="mt-3">
-                  <img src={item.image} alt={item.itemName} className="h-28 w-full rounded-lg border border-slate-200 object-cover" />
-                  <a href={item.image} target="_blank" rel="noreferrer" className="mt-2 inline-block rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+                  <button type="button" onClick={() => openImagePreview(safeImage)} className="w-full text-left">
+                    <img src={safeImage} alt={item.itemName} className="h-28 w-full rounded-lg border border-slate-200 object-cover" />
+                  </button>
+                  <button type="button" onClick={() => openImagePreview(safeImage)} className="mt-2 inline-block rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
                     View Full Photo
-                  </a>
+                  </button>
                 </div>
               ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
@@ -337,17 +399,38 @@ function LostFoundPage() {
                 )}
               </div>
             </motion.article>
-          ))
+          )})
         )}
+        </div>
       </section>
+      </div>
 
       {!loading && !visibleItems.length && (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
           No lost & found items available.
         </div>
       )}
+
+      {previewImage ? (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/55 p-4">
+          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPreviewImage('')}
+                className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                <FiX />
+                Close
+              </button>
+            </div>
+            <img src={previewImage} alt="Full Preview" className="max-h-[80vh] w-full rounded-xl object-contain" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 export default LostFoundPage;
+

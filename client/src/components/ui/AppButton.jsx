@@ -10,10 +10,10 @@ function AppButton({
     variant === 'danger'
       ? 'bg-gradient-to-r from-rose-600 to-orange-500 text-white hover:from-rose-500 hover:to-orange-400'
       : variant === 'secondary'
-      ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800'
+      ? 'border border-blue-200 bg-gradient-to-r from-white to-blue-50 text-slate-700 hover:from-blue-50 hover:to-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800'
       : variant === 'ghost'
-      ? 'border border-cyan-200 bg-cyan-50/70 text-cyan-700 hover:bg-cyan-100 dark:border-cyan-900 dark:bg-cyan-900/25 dark:text-cyan-200 dark:hover:bg-cyan-900/40'
-      : 'bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white hover:from-indigo-500 hover:to-cyan-400';
+      ? 'border border-sky-200 bg-gradient-to-r from-sky-50/90 to-blue-50 text-sky-700 hover:from-sky-100 hover:to-blue-100 dark:border-cyan-900 dark:bg-cyan-900/25 dark:text-cyan-200 dark:hover:bg-cyan-900/40'
+      : 'bg-gradient-to-r from-blue-600 via-sky-500 to-cyan-500 text-white shadow-[0_12px_24px_rgba(59,130,246,0.32)] hover:from-blue-500 hover:via-sky-500 hover:to-cyan-400';
 
   return (
     <button

@@ -5,6 +5,7 @@ const {
   updateUser,
   deleteUser,
   deactivateUser,
+  activateUser,
   moveOutUser,
   changeUserRole,
   getUserActivities,
@@ -67,6 +68,15 @@ router.put(
   userIdParamValidator,
   validateRequest,
   deactivateUser
+);
+
+router.put(
+  '/:id/activate',
+  protect,
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  userIdParamValidator,
+  validateRequest,
+  activateUser
 );
 
 router.put(

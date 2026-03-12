@@ -5,6 +5,7 @@ const {
   updateLifecycleUser,
   deleteLifecycleUser,
   deactivateUser,
+  activateUser: activateLifecycleUser,
   moveOutUser,
   changeUserRole,
   getUserActivityTimeline,
@@ -68,6 +69,16 @@ module.exports = {
     });
     return successResponse(res, {
       message: 'User deactivated successfully.',
+      data: updated,
+    });
+  }),
+  activateUser: asyncHandler(async (req, res) => {
+    const updated = await activateLifecycleUser({
+      actor: req.user,
+      userId: req.params.id,
+    });
+    return successResponse(res, {
+      message: 'User activated successfully.',
       data: updated,
     });
   }),

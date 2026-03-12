@@ -92,13 +92,12 @@ maintenanceBillSchema.index({ societyId: 1, status: 1, paidAt: 1 });
 maintenanceBillSchema.index({ residentId: 1, month: 1, status: 1 });
 maintenanceBillSchema.index({ residentId: 1, paidAt: -1 });
 
-maintenanceBillSchema.pre('validate', function syncBillingParts(next) {
+maintenanceBillSchema.pre('validate', function syncBillingParts() {
   if (typeof this.month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(this.month)) {
     const [year, month] = this.month.split('-').map((value) => Number(value));
     this.billingYear = year;
     this.billingMonth = month;
   }
-  next();
 });
 
 const MaintenanceBill = mongoose.model('MaintenanceBill', maintenanceBillSchema);

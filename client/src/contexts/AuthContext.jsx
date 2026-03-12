@@ -26,6 +26,9 @@ function resolveAllowedModules(userRole, modules = []) {
   if (['resident', 'tenant', 'owner'].includes(role)) {
     set.add('familyMembers');
   }
+  if (['super_admin', 'admin', 'committee', 'resident', 'tenant', 'owner'].includes(role)) {
+    set.add('marketplace');
+  }
   // Polls are visible to every logged-in user. Admin-only actions are enforced by backend/UI.
   set.add('polls');
   return Array.from(set);

@@ -6,6 +6,7 @@ const {
   updateUnit,
   assignResidentToUnit,
   markUnitVacant,
+  deleteUnit,
 } = require('../controllers/unitController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 const { ROLES } = require('../constants/roles');
@@ -52,6 +53,13 @@ router.put(
   protect,
   authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
   markUnitVacant
+);
+
+router.delete(
+  '/:id',
+  protect,
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),
+  deleteUnit
 );
 
 module.exports = router;

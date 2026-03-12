@@ -25,11 +25,13 @@ const announcementRoutes = require('./routes/announcementRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const familyMemberRoutes = require('./routes/familyMemberRoutes');
 const pollRoutes = require('./routes/pollRoutes');
+const marketplaceRoutes = require('./routes/marketplaceRoutes');
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -61,6 +63,7 @@ app.use('/api', announcementRoutes);
 app.use('/api', alertRoutes);
 app.use('/api/family-members', familyMemberRoutes);
 app.use('/api/polls', pollRoutes);
+app.use('/api/marketplace', marketplaceRoutes);
 
 // Fallback frontend hosting for environments where Vite dev server is unavailable.
 const clientDistPath = path.resolve(__dirname, '../../client/dist');

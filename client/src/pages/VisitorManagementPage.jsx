@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiAlertTriangle, FiBell, FiCalendar, FiCheck, FiClock, FiPackage, FiPhone, FiRefreshCw, FiSearch, FiShield, FiTruck, FiUserX, FiUsers } from 'react-icons/fi';
+import { FiAlertTriangle, FiBell, FiCalendar, FiCheck, FiClock, FiImage, FiPackage, FiPhone, FiRefreshCw, FiSearch, FiShield, FiTrash2, FiTruck, FiUploadCloud, FiUserX, FiUsers } from 'react-icons/fi';
 import { useSearchParams } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import ConfirmModal from '../components/ConfirmModal.jsx';
+import { readImageAsDataUrl } from '../utils/imageUpload.js';
 
 const POLL_INTERVAL_MS = 15000;
 const GUARD_VISITOR_INITIAL_FORM = {
@@ -38,6 +40,13 @@ const DOMESTIC_STEPS = {
   OTP_SENT: 'otpSent',
   VERIFIED: 'verified',
 };
+const DOMESTIC_STAFF_TYPES = [
+  { value: 'maid', label: 'Maid' },
+  { value: 'cook', label: 'Cook' },
+  { value: 'driver', label: 'Driver' },
+  { value: 'nanny', label: 'Nanny' },
+  { value: 'other', label: 'Other' },
+];
 
 const STATUS_STYLES = {
   Pending: 'bg-amber-100 text-amber-700',
@@ -83,6 +92,7 @@ function VisitorManagementPage() {
   const isGuard = role === 'guard';
   const isTenant = role === 'tenant' || role === 'owner';
   const isAdminView = role === 'admin' || role === 'committee' || role === 'super_admin';
+  const isStrictAdmin = role === 'admin' || role === 'super_admin';
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -132,6 +142,7 @@ function VisitorManagementPage() {
   const [domesticEntries, setDomesticEntries] = useState([]);
   const [domesticStep, setDomesticStep] = useState(DOMESTIC_STEPS.INITIAL);
   const [domesticError, setDomesticError] = useState('');
+  const [deleteVisitorState, setDeleteVisitorState] = useState({ open: false, id: '', name: '' });
 
   function resetGateForm(scope = 'all') {
     if (scope === 'all' || scope === 'visitors') {
@@ -354,6 +365,17 @@ function VisitorManagementPage() {
     }
   }
 
+  async function uploadVisitorPhoto(file) {
+    if (!file) return;
+    try {
+      const imageDataUrl = await readImageAsDataUrl(file);
+      setGuardForm((prev) => ({ ...prev, photoUrl: imageDataUrl }));
+      showToast('Visitor photo attached successfully.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to attach visitor photo.', 'error');
+    }
+  }
+
   async function markEntry(visitorId) {
     try {
       await apiRequest(`/api/visitors/${visitorId}/entry`, { method: 'PUT' });
@@ -402,6 +424,19 @@ function VisitorManagementPage() {
       await loadData({ silent: true });
     } catch (err) {
       showToast(err.message || 'Failed to mark emergency visitor.', 'error');
+    }
+  }
+
+  async function deleteVisitorLog() {
+    try {
+      if (!deleteVisitorState.id) return;
+      await apiRequest(`/api/visitors/${deleteVisitorState.id}`, { method: 'DELETE', raw: true });
+      showToast('Visitor log deleted.', 'success');
+      setDeleteVisitorState({ open: false, id: '', name: '' });
+      await loadData({ silent: true });
+    } catch (err) {
+      showToast(err.message || 'Failed to delete visitor log.', 'error');
+      setDeleteVisitorState({ open: false, id: '', name: '' });
     }
   }
 
@@ -666,7 +701,7 @@ function VisitorManagementPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-cyan-700">Gate Command Center</p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Smart Gate Management</h2>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Visitor & Gate Operations</h2>
           </div>
           <button
             onClick={async () => {
@@ -734,9 +769,19 @@ function VisitorManagementPage() {
                 <h3 className="text-lg font-semibold text-slate-900">New Visitor Entry</h3>
                 <p className="mt-1 text-sm text-slate-500">This request is sent to the selected tenant for approval.</p>
                 <div className="mt-3 space-y-3">
-                  <input value={guardForm.visitorName} onChange={(e) => setGuardForm((prev) => ({ ...prev, visitorName: e.target.value }))} placeholder="Visitor Name" required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-                  <input value={guardForm.phone} onChange={(e) => setGuardForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Phone Number" required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-                  <input value={guardForm.purpose} onChange={(e) => setGuardForm((prev) => ({ ...prev, purpose: e.target.value }))} placeholder="Purpose" required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <input value={guardForm.visitorName} onChange={(e) => setGuardForm((prev) => ({ ...prev, visitorName: e.target.value }))} placeholder="Enter visitor name" required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <input value={guardForm.phone} onChange={(e) => setGuardForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Enter phone number" required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <input value={guardForm.purpose} onChange={(e) => setGuardForm((prev) => ({ ...prev, purpose: e.target.value }))} placeholder="Enter visit purpose" required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">
+                    <FiUploadCloud />
+                    Upload visitor photo (optional)
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadVisitorPhoto(e.target.files?.[0])} />
+                  </label>
+                  {guardForm.photoUrl ? (
+                    <a href={guardForm.photoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+                      <FiImage size={12} /> View uploaded visitor photo
+                    </a>
+                  ) : null}
                   <select value={guardForm.visitingUnit} onChange={(e) => setGuardForm((prev) => ({ ...prev, visitingUnit: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
                     <option value="">Flat Number</option>
                     {occupiedUnits.map((unit) => (
@@ -776,15 +821,18 @@ function VisitorManagementPage() {
                 </div>
               </motion.form>
 
-              <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-                <h3 className="text-lg font-semibold text-slate-900">Live Guard Feed</h3>
+              <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+                <div className="classy-list-toolbar mb-3 flex flex-wrap items-center gap-2">
+                  <h3 className="mr-auto text-lg font-semibold text-slate-900">Live Guard Feed</h3>
+                  <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{filteredVisitors.length} records</span>
+                </div>
                 <p className="mt-1 text-sm text-slate-500">Track approval and entry states instantly.</p>
-                <div className="mt-4 space-y-3">
+                <div className="classy-list-grid mt-4 space-y-3">
                   {loading ? (
                     <p className="text-sm text-slate-500">Loading visitors...</p>
                   ) : (
                     filteredVisitors.map((visitor) => (
-                      <div key={visitor._id} className="rounded-xl border border-slate-200 p-3">
+                      <div key={visitor._id} className="classy-list-card rounded-xl border border-slate-200 bg-slate-50 p-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="font-semibold text-slate-900">{visitor.visitorName}</p>
                           <div className="flex items-center gap-2">
@@ -832,10 +880,10 @@ function VisitorManagementPage() {
                       }
                       setDomesticError('');
                     }}
-                    placeholder="Phone Number"
+                    placeholder="Enter phone number (10 digits)"
                     className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                   />
-                  <input
+                  <select
                     value={domesticForm.staffType}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -848,9 +896,17 @@ function VisitorManagementPage() {
                       }
                       setDomesticError('');
                     }}
-                    placeholder="Staff Type (Maid / Cook / Driver)"
                     className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-                  />
+                  >
+                    <option value="" disabled>
+                      Select Staff Type
+                    </option>
+                    {DOMESTIC_STAFF_TYPES.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
                   <select
                     value={domesticForm.flatNumber}
                     onChange={(e) => {
@@ -866,7 +922,7 @@ function VisitorManagementPage() {
                     }}
                     className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                   >
-                    <option value="">Flat Number</option>
+                    <option value="">Select Flat Number</option>
                     {occupiedUnits.map((unit) => (
                       <option key={`domestic-${unit._id}`} value={unit.unitNumber || unit.flatNumber || ''}>
                         {unit.unitNumber || `${unit.wing || ''}${unit.wing ? '-' : ''}${unit.flatNumber || ''}`.replace(/^-/, '')}
@@ -880,7 +936,7 @@ function VisitorManagementPage() {
                         setDomesticOtp(e.target.value);
                         setDomesticError('');
                       }}
-                      placeholder="Enter OTP"
+                      placeholder="Enter 4-digit OTP code"
                       className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                     />
                   )}
@@ -927,12 +983,15 @@ function VisitorManagementPage() {
                 </div>
               </motion.section>
 
-              <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-                <h3 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900"><FiClock /> Live Logs</h3>
+              <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+                <div className="classy-list-toolbar mb-3 flex flex-wrap items-center gap-2">
+                  <h3 className="mr-auto inline-flex items-center gap-2 text-lg font-semibold text-slate-900"><FiClock /> Live Logs</h3>
+                  <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{domesticEntries.length} active</span>
+                </div>
                 <p className="mt-1 text-sm text-slate-500">Domestic staff entries currently inside the society.</p>
-                <div className="mt-4 space-y-3">
+                <div className="classy-list-grid mt-4 space-y-3">
                   {domesticEntries.map((row) => (
-                    <div key={row._id} className="rounded-xl border border-slate-200 p-3">
+                    <div key={row._id} className="classy-list-card rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-semibold text-slate-900">{row.staffId?.name || '-'}</p>
                         <StatusBadge status="Entered" />
@@ -998,7 +1057,7 @@ function VisitorManagementPage() {
                       }
                       setDeliveryError('');
                     }}
-                    placeholder="Delivery Person Name"
+                    placeholder="Enter delivery person name"
                     className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                   />
                   <input
@@ -1015,7 +1074,7 @@ function VisitorManagementPage() {
                       }
                       setDeliveryError('');
                     }}
-                    placeholder="Delivery Person Phone Number"
+                    placeholder="Enter delivery person phone number"
                     className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                   />
                   <select
@@ -1080,7 +1139,7 @@ function VisitorManagementPage() {
                         setDeliveryOtp(e.target.value);
                         setDeliveryError('');
                       }}
-                      placeholder="Enter OTP"
+                      placeholder="Enter OTP code"
                       className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                     />
                   )}
@@ -1093,12 +1152,15 @@ function VisitorManagementPage() {
                 </div>
               </motion.section>
 
-              <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-                <h3 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900"><FiPackage /> Delivery History</h3>
+              <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+                <div className="classy-list-toolbar mb-3 flex flex-wrap items-center gap-2">
+                  <h3 className="mr-auto inline-flex items-center gap-2 text-lg font-semibold text-slate-900"><FiPackage /> Delivery History</h3>
+                  <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{deliveryHistory.length} entries</span>
+                </div>
                 <p className="mt-1 text-sm text-slate-500">Track pending, entered and exited deliveries per flat.</p>
-                <div className="mt-4 space-y-3">
+                <div className="classy-list-grid mt-4 space-y-3">
                   {deliveryHistory.map((item) => (
-                    <div key={item._id} className="rounded-xl border border-slate-200 p-3">
+                    <div key={item._id} className="classy-list-card rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-semibold text-slate-900">{item.deliveryType} - {item.deliveryPersonName}</p>
                         <StatusBadge status={item.status} />
@@ -1151,6 +1213,11 @@ function VisitorManagementPage() {
                     <StatusBadge status={visitor.status} />
                   </div>
                   <p className="mt-1 text-xs text-slate-500">{visitor.phone} | {visitor.purpose}</p>
+                  {visitor.photoUrl ? (
+                    <a href={visitor.photoUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200">
+                      <FiImage size={11} /> View photo
+                    </a>
+                  ) : null}
                   <p className="mt-1 text-xs text-slate-500">Flat: {visitor.visitingUnit?.unitNumber || '-'} | Guard: {visitor.createdByGuard?.name || '-'}</p>
                   <p className="mt-1 text-xs text-slate-500">Requested: {formatDateTime(visitor.requestedEntryTime)}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1174,6 +1241,11 @@ function VisitorManagementPage() {
                   <div key={visitor._id} className="rounded-lg border border-slate-200 p-3 text-sm">
                     <p className="font-semibold text-slate-900">{visitor.visitorName}</p>
                     <p className="text-xs text-slate-500">{visitor.purpose} | QR: {visitor.qrApprovalCode || '-'}</p>
+                    {visitor.photoUrl ? (
+                      <a href={visitor.photoUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200">
+                        <FiImage size={11} /> View photo
+                      </a>
+                    ) : null}
                   </div>
                 ))}
                 {!tenantApproved.length && <p className="text-sm text-slate-500">No approved visitors.</p>}
@@ -1245,8 +1317,8 @@ function VisitorManagementPage() {
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
               <h3 className="text-lg font-semibold text-slate-900">Filter Logs</h3>
               <div className="mt-3 space-y-3">
-                <input value={filters.name} onChange={(e) => setFilters((prev) => ({ ...prev, name: e.target.value }))} placeholder="Visitor name" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-                <input value={filters.flat} onChange={(e) => setFilters((prev) => ({ ...prev, flat: e.target.value }))} placeholder="Flat number" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                <input value={filters.name} onChange={(e) => setFilters((prev) => ({ ...prev, name: e.target.value }))} placeholder="Search by visitor name" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                <input value={filters.flat} onChange={(e) => setFilters((prev) => ({ ...prev, flat: e.target.value }))} placeholder="Search by flat number" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
                 <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
                   <option value="">All Status</option>
                   <option value="Pending">Pending</option>
@@ -1278,6 +1350,11 @@ function VisitorManagementPage() {
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{visitor.visitorName}</p>
                         <p className="text-xs text-slate-500">{visitor.phone} | Flat: {visitor.visitingUnit?.unitNumber || '-'}</p>
+                        {visitor.photoUrl ? (
+                          <a href={visitor.photoUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200">
+                            <FiImage size={11} /> View photo
+                          </a>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2">
                         {visitor.isEmergency ? <span className="rounded-full bg-rose-100 px-2 py-1 text-[10px] font-semibold text-rose-700">Emergency</span> : null}
@@ -1290,12 +1367,23 @@ function VisitorManagementPage() {
                       <p className="inline-flex items-center gap-1"><FiClock /> Requested: {formatDateTime(visitor.requestedEntryTime || visitor.createdAt)}</p>
                       <p className="inline-flex items-center gap-1"><FiBell /> Approved By: {visitor.approvedBy?.name || '-'}</p>
                     </div>
-                    {!visitor.isEmergency ? (
-                      <button onClick={() => markVisitorEmergency(visitor._id)} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">
-                        <FiAlertTriangle />
-                        Mark Emergency
-                      </button>
-                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {!visitor.isEmergency ? (
+                        <button onClick={() => markVisitorEmergency(visitor._id)} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">
+                          <FiAlertTriangle />
+                          Mark Emergency
+                        </button>
+                      ) : null}
+                      {isStrictAdmin ? (
+                        <button
+                          onClick={() => setDeleteVisitorState({ open: true, id: visitor._id, name: visitor.visitorName || 'this visitor log' })}
+                          className="inline-flex items-center gap-1 rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-800"
+                        >
+                          <FiTrash2 />
+                          Delete
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 ))
               )}
@@ -1304,8 +1392,18 @@ function VisitorManagementPage() {
           </section>
         </section>
       )}
+
+      <ConfirmModal
+        open={deleteVisitorState.open}
+        title="Delete Visitor Log"
+        description={`Do you want to delete ${deleteVisitorState.name}?`}
+        confirmLabel="Delete"
+        onCancel={() => setDeleteVisitorState({ open: false, id: '', name: '' })}
+        onConfirm={deleteVisitorLog}
+      />
     </div>
   );
 }
 
 export default VisitorManagementPage;
+

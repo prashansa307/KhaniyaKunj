@@ -1,16 +1,20 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { FiCheckCircle, FiGrid, FiMapPin, FiSearch, FiTrendingUp } from 'react-icons/fi';
+import { FiCheckCircle, FiGrid, FiMapPin, FiSearch, FiTrash2, FiTrendingUp } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useToast } from '../contexts/ToastContext.jsx';
+import ConfirmModal from '../components/ConfirmModal.jsx';
 
 function SocietiesPage() {
   const { apiRequest } = useAuth();
+  const { showToast } = useToast();
   const [societies, setSocieties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [form, setForm] = useState({ name: '', address: '', totalFlats: '' });
+  const [deleteState, setDeleteState] = useState({ open: false, id: '', name: '' });
 
   const canSubmit = useMemo(
     () => form.name.trim() && form.address.trim() && Number(form.totalFlats) > 0,
@@ -108,6 +112,19 @@ function SocietiesPage() {
     }
   }
 
+  async function deleteSociety() {
+    if (!deleteState.id) return;
+    try {
+      await apiRequest(`/api/societies/${deleteState.id}`, { method: 'DELETE', raw: true });
+      showToast('Society deleted successfully.', 'success');
+      setDeleteState({ open: false, id: '', name: '' });
+      await fetchSocieties();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete society.', 'error');
+      setDeleteState({ open: false, id: '', name: '' });
+    }
+  }
+
   const societyCode = useMemo(() => {
     const label = form.name.trim();
     if (!label) return 'SOC-NEW';
@@ -133,7 +150,7 @@ function SocietiesPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300">
             Society Workspace
           </p>
-          <h2 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">Society Control Center</h2>
+          <h2 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">Society Portfolio Management</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
             Register communities, track flat capacity, and maintain a clean live directory for your operations.
           </p>
@@ -198,7 +215,7 @@ function SocietiesPage() {
                 value={form.name}
                 onChange={onChange}
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-800"
-                placeholder="Green Valley Residency"
+                placeholder="Enter society name (e.g. Green Valley Residency)"
                 required
               />
             </div>
@@ -216,7 +233,7 @@ function SocietiesPage() {
                 value={form.address}
                 onChange={onChange}
                 className="w-full resize-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-800"
-                placeholder="Sector 21, Noida"
+                placeholder="Enter society address (e.g. Sector 21, Noida)"
                 required
               />
             </div>
@@ -233,7 +250,7 @@ function SocietiesPage() {
               value={form.totalFlats}
               onChange={onChange}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-800"
-              placeholder="120"
+              placeholder="Enter total flats (e.g. 120)"
               required
             />
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -346,6 +363,16 @@ function SocietiesPage() {
                   </span>
                 </div>
 
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteState({ open: true, id: society._id, name: society.name || 'this society' })}
+                    className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                  >
+                    <FiTrash2 size={12} /> Delete
+                  </button>
+                </div>
+
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-500"
@@ -360,8 +387,17 @@ function SocietiesPage() {
       </div>
 
       {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 dark:bg-rose-900/30 dark:text-rose-200">{error}</p>}
+      <ConfirmModal
+        open={deleteState.open}
+        title="Delete Society"
+        description={`Do you want to delete ${deleteState.name}?`}
+        confirmLabel="Delete"
+        onCancel={() => setDeleteState({ open: false, id: '', name: '' })}
+        onConfirm={deleteSociety}
+      />
     </div>
   );
 }
 
 export default SocietiesPage;
+

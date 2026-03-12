@@ -123,7 +123,7 @@ function AuthPage() {
                 value={form.email}
                 onChange={onChange}
                 className="w-full rounded-xl border border-slate-200 bg-white px-10 py-3 text-sm text-slate-900 outline-none transition duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:shadow-[0_0_0_4px_rgba(99,102,241,0.16)]"
-                placeholder="name@example.com"
+                placeholder="Enter your email (e.g. name@example.com)"
                 required
               />
             </div>
@@ -211,7 +211,7 @@ function AuthPage() {
                   type="email"
                   value={forgotEmail}
                   onChange={(event) => setForgotEmail(event.target.value)}
-                  placeholder="Email Address"
+                  placeholder="Enter your email address"
                   className="w-full rounded-2xl border border-slate-200 bg-white px-10 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-cyan-400 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.15)]"
                   required
                 />
@@ -252,3 +252,4 @@ function AuthPage() {
 }
 
 export default AuthPage;
+

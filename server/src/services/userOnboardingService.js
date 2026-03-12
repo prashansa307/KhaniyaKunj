@@ -449,6 +449,69 @@ async function deactivateUser({ actor, userId }) {
   }
 }
 
+async function activateUser({ actor, userId }) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const user = await User.findOne({ _id: userId, isDeleted: { $ne: true } }).session(session);
+    if (!user) {
+      const err = new Error('User not found.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (!canManageSociety({ actor, targetSocietyId: user.societyId })) {
+      const err = new Error('Forbidden.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    user.status = 'Active';
+    user.isActive = true;
+    user.onboardingWorkflow = {
+      ...(user.onboardingWorkflow || {}),
+      activated: true,
+    };
+    await user.save({ session });
+
+    await MaintenanceProfile.updateOne(
+      { userId: user._id },
+      { $set: { profileStatus: 'Active' } },
+      { session }
+    );
+
+    await logUserActivity({
+      session,
+      userId: user._id,
+      societyId: user.societyId,
+      actorId: actor._id,
+      activityType: 'ACTIVATED',
+      description: 'User account activated again.',
+    });
+
+    await AuditLog.create(
+      [
+        {
+          actorId: actor._id,
+          societyId: user.societyId,
+          entity: 'User',
+          entityId: user._id,
+          action: 'USER_ACTIVATED',
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+    return toDto(user);
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
+}
+
 async function moveOutUser({ actor, userId }) {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -998,6 +1061,7 @@ module.exports = {
   updateLifecycleUser,
   deleteLifecycleUser,
   deactivateUser,
+  activateUser,
   moveOutUser,
   changeUserRole,
   getUserActivityTimeline,

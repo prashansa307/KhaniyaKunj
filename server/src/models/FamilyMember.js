@@ -30,9 +30,8 @@ const familyMemberSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-familyMemberSchema.pre('validate', function assignAgeCategory(next) {
+familyMemberSchema.pre('validate', function assignAgeCategory() {
   this.ageCategory = resolveAgeCategory(this.age);
-  next();
 });
 
 familyMemberSchema.index({ societyId: 1, flatId: 1, createdAt: -1 });

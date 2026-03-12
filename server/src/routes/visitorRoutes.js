@@ -11,6 +11,7 @@ const {
   getTodayVisitors,
   getVisitorLogs,
   getVisitorAnalytics,
+  deleteVisitorLog,
 } = require('../controllers/visitorController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 const { ROLES } = require('../constants/roles');
@@ -51,6 +52,12 @@ router.get(
   protect,
   authorizeRoles(ROLES.ADMIN, ROLES.COMMITTEE, ROLES.SUPER_ADMIN),
   getVisitorAnalytics
+);
+router.delete(
+  '/:id',
+  protect,
+  authorizeRoles(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  deleteVisitorLog
 );
 
 module.exports = router;

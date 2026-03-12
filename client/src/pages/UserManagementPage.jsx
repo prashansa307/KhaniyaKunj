@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { FiRefreshCw, FiUserX, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiRefreshCw, FiUserX, FiEdit2, FiTrash2, FiUserCheck } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import EditPopup from '../components/EditPopup.jsx';
 
 const ROLE_OPTIONS = ['committee', 'resident', 'guard'];
 const STATUS_OPTIONS = ['Active', 'Inactive', 'Suspended'];
@@ -266,6 +267,22 @@ function UserManagementPage() {
       showToast(`${payload.message || 'Action completed.'}${tempPassword}`, 'success');
       await loadUsers(filters);
     } catch (err) {
+      const errorText = String(err?.message || '').toLowerCase();
+      if (action === 'activate' && errorText.includes('route not found')) {
+        try {
+          const fallback = await apiRequest(`/api/users/${userId}`, {
+            method: 'PUT',
+            body: { status: 'Active' },
+            raw: true,
+          });
+          showToast(fallback.message || 'User activated successfully.', 'success');
+          await loadUsers(filters);
+          return;
+        } catch (fallbackErr) {
+          showToast(fallbackErr.message || 'Activation failed.', 'error');
+          return;
+        }
+      }
       showToast(err.message || 'Action failed.', 'error');
     }
   }
@@ -292,32 +309,84 @@ function UserManagementPage() {
 
   return (
     <div className="space-y-5">
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-slate-900"
-      >
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">User Onboarding Center</h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {editingUserId ? 'Edit user details and save changes.' : 'Create and lifecycle-manage users with dynamic role impact.'}
-        </p>
+      <div className={`${!editingUserId ? 'grid gap-5 xl:grid-cols-[420px,1fr] xl:items-start' : ''}`}>
+      {!editingUserId && (
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="xl:sticky xl:top-24 rounded-3xl border border-sky-200/80 bg-gradient-to-br from-white via-sky-50 to-blue-100/80 p-5 shadow-panel dark:border-slate-800 dark:bg-slate-900"
+        >
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">User Access & Role Management</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Create and lifecycle-manage users with dynamic role impact.</p>
 
-        <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" onSubmit={onSubmitUser}>
-          <input name="name" value={form.name} onChange={onFormChange} placeholder="Full name" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" required />
-          <input type="email" name="email" value={form.email} onChange={onFormChange} placeholder="Email" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" required />
-          <input name="phone" value={form.phone} onChange={onFormChange} placeholder="Phone" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+          <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" onSubmit={onSubmitUser}>
+            <input name="name" value={form.name} onChange={onFormChange} placeholder="Full name" className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800" required />
+            <input type="email" name="email" value={form.email} onChange={onFormChange} placeholder="Enter email address" className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800" required />
+            <input name="phone" value={form.phone} onChange={onFormChange} placeholder="Enter phone number" className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800" />
+
+            <select
+              name="role"
+              value={form.role}
+              onChange={onFormChange}
+              className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800"
+              required
+            >
+              <option value="" disabled>
+                Select role
+              </option>
+              {ROLE_OPTIONS.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+            {isUnitRole && (
+              <select
+                name="unitId"
+                value={form.unitId}
+                onChange={onFormChange}
+                className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800"
+                required
+              >
+                <option value="">Select available unit</option>
+                {units
+                  .filter((unit) => {
+                    const status = String(unit?.status || '').toUpperCase();
+                    const occupied = String(unit?.occupancyStatus || '').toLowerCase() === 'occupied';
+                    const hasAssigned = Boolean(unit?.assignedResidentId || unit?.tenantId || unit?.ownerId);
+                    return !hasAssigned && !occupied && status !== 'OCCUPIED';
+                  })
+                  .map((unit) => (
+                    <option key={unit._id} value={unit._id}>
+                      {unit.unitNumber || `${unit.wing || ''}${unit.wing ? '-' : ''}${unit.flatNumber || ''}`.replace(/^-/, '')}
+                    </option>
+                  ))}
+              </select>
+            )}
+            <button
+              disabled={submittingUser}
+              className="rounded-xl bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-300/60 hover:from-sky-500 hover:via-blue-500 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submittingUser ? 'Creating...' : 'Create User'}
+            </button>
+          </form>
+        </motion.section>
+      )}
+
+      <EditPopup open={Boolean(editingUserId)} title="Edit User" onClose={resetForm} maxWidthClass="max-w-4xl">
+        <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" onSubmit={onSubmitUser}>
+          <input name="name" value={form.name} onChange={onFormChange} placeholder="Full name" className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800" required />
+          <input type="email" name="email" value={form.email} onChange={onFormChange} placeholder="Enter email address" className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800" required />
+          <input name="phone" value={form.phone} onChange={onFormChange} placeholder="Enter phone number" className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800" />
 
           <select
             name="role"
             value={form.role}
             onChange={onFormChange}
-            disabled={Boolean(editingUserId)}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800"
+            disabled
+            className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800"
             required
           >
-            <option value="" disabled>
-              Select role
-            </option>
             {ROLE_OPTIONS.map((role) => (
               <option key={role} value={role}>
                 {role}
@@ -329,8 +398,7 @@ function UserManagementPage() {
               name="unitId"
               value={form.unitId}
               onChange={onFormChange}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              required={!editingUserId}
+              className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="">Select available unit</option>
               {units
@@ -338,7 +406,7 @@ function UserManagementPage() {
                   const status = String(unit?.status || '').toUpperCase();
                   const occupied = String(unit?.occupancyStatus || '').toLowerCase() === 'occupied';
                   const hasAssigned = Boolean(unit?.assignedResidentId || unit?.tenantId || unit?.ownerId);
-                  const isCurrentEditUnit = editingUserId && String(unit?._id) === String(form.unitId);
+                  const isCurrentEditUnit = String(unit?._id) === String(form.unitId);
                   return isCurrentEditUnit || (!hasAssigned && !occupied && status !== 'OCCUPIED');
                 })
                 .map((unit) => (
@@ -348,37 +416,37 @@ function UserManagementPage() {
                 ))}
             </select>
           )}
-          <button
-            disabled={submittingUser}
-            className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submittingUser ? (editingUserId ? 'Updating...' : 'Creating...') : editingUserId ? 'Update User' : 'Create User'}
-          </button>
-          {editingUserId && (
-            <button type="button" onClick={resetForm} className="rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
-              Cancel Edit
+          <div className="md:col-span-2 xl:col-span-4 flex gap-2">
+            <button
+              disabled={submittingUser}
+              className="rounded-xl bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-300/60 hover:from-sky-500 hover:via-blue-500 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submittingUser ? 'Updating...' : 'Save Changes'}
             </button>
-          )}
+            <button type="button" onClick={resetForm} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
+              Cancel
+            </button>
+          </div>
         </form>
-      </motion.section>
+      </EditPopup>
 
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-slate-900"
+        className="classy-list-shell rounded-3xl border border-sky-200/80 bg-gradient-to-br from-white via-blue-50 to-sky-100/70 p-5 shadow-panel dark:border-slate-800 dark:bg-slate-900"
       >
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="classy-list-toolbar mb-4 flex flex-wrap gap-2">
           <input
             value={filters.search}
             onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value, page: 1 }))}
             placeholder="Search by name/email/phone"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+            className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800"
           />
-          <select value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value, page: 1 }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <select value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value, page: 1 }))} className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800">
             <option value="">All roles</option>
             {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value, page: 1 }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value, page: 1 }))} className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800">
             <option value="">All status</option>
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -386,45 +454,60 @@ function UserManagementPage() {
             <select
               value={filters.societyId}
               onChange={(e) => setSocietyScope(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              className="rounded-xl border border-sky-200 bg-white/90 px-3 py-2 text-sm shadow-sm focus:border-sky-400 dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="">All societies</option>
               {societies.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
             </select>
           )}
-          <button onClick={() => loadUsers(filters)} className="inline-flex items-center gap-1 rounded-xl bg-slate-800 px-3 py-2 text-sm font-medium text-white"><FiRefreshCw />Refresh</button>
+          <button onClick={() => loadUsers(filters)} className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-blue-700 to-cyan-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-300/60 hover:from-blue-600 hover:to-cyan-500"><FiRefreshCw />Refresh</button>
         </div>
 
-        <div className="space-y-3">
+        <div className="classy-list-grid space-y-3">
           {!users.length && (
-            <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <p className="classy-list-note rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
               No users found for the current filters.
             </p>
           )}
           {users.map((u) => (
-            <div key={u.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold text-slate-900 dark:text-white">{u.name}</p>
-                <span className="rounded bg-slate-200 px-2 py-0.5 text-xs dark:bg-slate-700">{u.role}</span>
-                <span className="rounded bg-slate-200 px-2 py-0.5 text-xs dark:bg-slate-700">{u.status}</span>
-                <span className="text-xs text-slate-500">{u.email}</span>
+            <div key={u.id} className="classy-list-card rounded-2xl border border-sky-200 bg-gradient-to-r from-white to-sky-50 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/50">
+              <div className="flex flex-wrap items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900 dark:text-white">{u.name}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-slate-700">{u.role}</span>
+                    <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-800 dark:bg-slate-700">{u.status}</span>
+                    <span className="text-xs text-slate-600">{u.email}</span>
+                  </div>
+                </div>
                 <div className="ml-auto flex flex-wrap gap-2">
-                  <button onClick={() => onEditUser(u)} className="inline-flex items-center gap-1 rounded bg-cyan-600 px-2 py-1 text-xs font-semibold text-white">
+                  <button onClick={() => onEditUser(u)} className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-md hover:from-cyan-400 hover:to-blue-500">
                     <FiEdit2 />Edit
                   </button>
                   <button
-                    onClick={() => doAction(u.id, 'deactivate')}
-                    disabled={u.status !== 'Active'}
-                    className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => doAction(u.id, String(u.status) === 'Active' ? 'deactivate' : 'activate')}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white shadow-md ${
+                      String(u.status) === 'Active'
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500'
+                        : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500'
+                    }`}
                   >
-                    <FiUserX />Deactivate
+                    {String(u.status) === 'Active' ? (
+                      <>
+                        <FiUserX />Deactivate
+                      </>
+                    ) : (
+                      <>
+                        <FiUserCheck />Activate
+                      </>
+                    )}
                   </button>
-                  <button onClick={() => setConfirmDelete({ open: true, userId: u.id })} className="inline-flex items-center gap-1 rounded bg-rose-700 px-2 py-1 text-xs font-semibold text-white">
+                  <button onClick={() => setConfirmDelete({ open: true, userId: u.id })} className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-rose-600 to-red-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-md hover:from-rose-500 hover:to-red-500">
                     <FiTrash2 />Delete
                   </button>
                   <button
                     onClick={() => doAction(u.id, 'resend-invite')}
-                    className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white"
+                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-md hover:from-indigo-500 hover:to-violet-500"
                   >
                     <FiRefreshCw />Resend Invite
                   </button>
@@ -435,15 +518,16 @@ function UserManagementPage() {
         </div>
 
         {pagination && (
-          <div className="mt-4 flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+          <div className="mt-4 flex items-center justify-between text-xs uppercase tracking-wide text-slate-600">
             <span>Page {pagination.page} of {pagination.totalPages || 1}</span>
             <div className="flex gap-2">
-              <button disabled={pagination.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))} className="rounded bg-slate-200 px-2 py-1 disabled:opacity-50 dark:bg-slate-700">Prev</button>
-              <button disabled={pagination.page >= pagination.totalPages} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))} className="rounded bg-slate-200 px-2 py-1 disabled:opacity-50 dark:bg-slate-700">Next</button>
+              <button disabled={pagination.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))} className="rounded-lg bg-gradient-to-r from-slate-200 to-slate-300 px-2.5 py-1.5 font-semibold text-slate-700 disabled:opacity-50 dark:bg-slate-700">Prev</button>
+              <button disabled={pagination.page >= pagination.totalPages} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))} className="rounded-lg bg-gradient-to-r from-slate-200 to-slate-300 px-2.5 py-1.5 font-semibold text-slate-700 disabled:opacity-50 dark:bg-slate-700">Next</button>
             </div>
           </div>
         )}
       </motion.section>
+      </div>
 
       <ConfirmModal
         open={confirmDelete.open}
@@ -458,3 +542,4 @@ function UserManagementPage() {
 }
 
 export default UserManagementPage;
+

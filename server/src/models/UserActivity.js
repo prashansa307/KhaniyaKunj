@@ -27,6 +27,7 @@ const userActivitySchema = new mongoose.Schema(
         'ROLE_CHANGED',
         'MOVED_OUT',
         'DEACTIVATED',
+        'ACTIVATED',
         'PROFILE_UPDATED',
         'USER_DELETED',
       ],

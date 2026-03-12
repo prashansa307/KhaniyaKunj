@@ -11,6 +11,7 @@ import {
   FiSearch,
   FiSend,
   FiTag,
+  FiTrash2,
   FiUploadCloud,
   FiUser,
   FiZap,
@@ -19,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import { readImageAsDataUrl } from '../utils/imageUpload.js';
 
 const CATEGORY_OPTIONS = ['Electrician', 'Plumber', 'Lift', 'Water', 'Cleaning', 'Security'];
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High'];
@@ -70,7 +72,7 @@ function StatCard({ title, value, icon: Icon }) {
   );
 }
 
-function RequestCard({ request, canUpdateStatus, onStatusUpdate, statusUpdatingId }) {
+function RequestCard({ request, canUpdateStatus, onStatusUpdate, statusUpdatingId, canDelete, onDelete, deletingId }) {
   const status = normalizeStatus(request.status);
   const creatorName = request?.createdBy?.name || request?.residentId?.name || '-';
   const creatorRole = String(request?.createdByRole || request?.createdBy?.role || '').toUpperCase();
@@ -78,7 +80,7 @@ function RequestCard({ request, canUpdateStatus, onStatusUpdate, statusUpdatingI
   const canResolve = status === 'InProgress' || status === 'Pending';
 
   return (
-    <li className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+    <li className="classy-list-card rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">{request.title}</h3>
@@ -139,6 +141,34 @@ function RequestCard({ request, canUpdateStatus, onStatusUpdate, statusUpdatingI
                 Workflow Complete
               </span>
             ) : null}
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={() => onDelete(request)}
+                disabled={deletingId === String(request._id)}
+                className="w-full rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <FiTrash2 size={14} />
+                  {deletingId === String(request._id) ? 'Deleting...' : 'Delete'}
+                </span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {!canUpdateStatus && canDelete ? (
+          <div className="w-full md:w-56">
+            <button
+              type="button"
+              onClick={() => onDelete(request)}
+              disabled={deletingId === String(request._id)}
+              className="w-full rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+            >
+              <span className="inline-flex items-center gap-2">
+                <FiTrash2 size={14} />
+                {deletingId === String(request._id) ? 'Deleting...' : 'Delete'}
+              </span>
+            </button>
           </div>
         ) : null}
       </div>
@@ -156,6 +186,7 @@ function ServiceRequestsPage() {
   const roleLooksGuard = role.includes('guard') || role.includes('security');
   const canCreateRequest = ['admin', 'super_admin', 'committee', 'tenant', 'owner', 'resident'].includes(role);
   const canUpdateStatus = ['admin', 'super_admin'].includes(role) || roleLooksGuard;
+  const canDeleteRequest = ['admin', 'super_admin'].includes(role);
   const draftKey = `${DRAFT_KEY_BASE}:${String(admin?._id || 'anon')}`;
 
   const [requests, setRequests] = useState([]);
@@ -164,7 +195,8 @@ function ServiceRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState('');
-  const [showBoard, setShowBoard] = useState(!['admin', 'super_admin'].includes(role));
+  const [deleteState, setDeleteState] = useState({ open: false, id: '', title: '' });
+  const [deletingId, setDeletingId] = useState('');
 
   const [form, setForm] = useState({
     title: '',
@@ -212,10 +244,6 @@ function ServiceRequestsPage() {
     loadRequests();
   }, [role, filters.status, filters.category]);
 
-  useEffect(() => {
-    setShowBoard(!['admin', 'super_admin'].includes(role));
-  }, [role]);
-
   function clearRequestForm() {
     setForm({
       title: '',
@@ -231,9 +259,13 @@ function ServiceRequestsPage() {
 
   async function handleImageUpload(file) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((prev) => ({ ...prev, imageUrl: String(reader.result || '') }));
-    reader.readAsDataURL(file);
+    try {
+      const imageDataUrl = await readImageAsDataUrl(file);
+      setForm((prev) => ({ ...prev, imageUrl: imageDataUrl }));
+      showToast('Image attached successfully.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to attach image.', 'error');
+    }
   }
 
   function requestCreate(event) {
@@ -293,6 +325,22 @@ function ServiceRequestsPage() {
     }
   }
 
+  async function deleteRequest() {
+    const id = deleteState.id;
+    if (!id) return;
+    try {
+      setDeletingId(String(id));
+      await apiRequest(`/api/service-requests/${id}`, { method: 'DELETE', raw: true });
+      showToast('Service request deleted.', 'success');
+      setDeleteState({ open: false, id: '', title: '' });
+      await loadRequests();
+    } catch (error) {
+      showToast(error.message || 'Failed to delete service request.', 'error');
+    } finally {
+      setDeletingId('');
+    }
+  }
+
   const stats = useMemo(() => {
     const normalized = requests.map((row) => normalizeStatus(row.status));
     const total = normalized.length;
@@ -330,7 +378,7 @@ function ServiceRequestsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="rounded-3xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 p-5 shadow-panel"
       >
-        <h2 className="text-2xl font-semibold text-slate-900">Service Request Workflow</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Service Request Management</h2>
         <p className="mt-1 text-sm text-slate-600">
           Requests are auto-routed to Guard workflow. Visibility is restricted to creator, admin, and guard.
         </p>
@@ -357,23 +405,19 @@ function ServiceRequestsPage() {
         <StatCard title="Resolved" value={stats.resolved} icon={FiCheckCircle} />
       </div>
 
-      {canCreateRequest ? (
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-cyan-50/40 to-emerald-50/40 p-5 shadow-panel dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900"
-        >
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Create Service Request</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Title, description and category are mandatory. Request is assigned to Guard automatically.
-              </p>
-            </div>
-          </div>
+      <div className={`grid gap-5 ${canCreateRequest ? 'xl:grid-cols-[420px,1fr]' : ''}`}>
+        {canCreateRequest ? (
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="xl:sticky xl:top-24 xl:self-start rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-cyan-50/45 to-emerald-50/45 p-5 shadow-panel dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900"
+          >
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Create Service Request</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Submit issue details quickly. Request auto-routes to Guard workflow.
+            </p>
 
-          <form className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]" onSubmit={requestCreate}>
-            <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/90 p-4 dark:border-slate-700 dark:bg-slate-900/70">
+            <form className="mt-4 space-y-3" onSubmit={requestCreate}>
               <label className="block">
                 <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <FiEdit3 size={12} /> Request title
@@ -386,6 +430,7 @@ function ServiceRequestsPage() {
                   required
                 />
               </label>
+
               <label className="block">
                 <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <FiTag size={12} /> Description
@@ -394,13 +439,11 @@ function ServiceRequestsPage() {
                   value={form.description}
                   onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
                   placeholder="Describe location and issue details"
-                  className="min-h-28 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
+                  className="min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
                   required
                 />
               </label>
-            </div>
 
-            <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/90 p-4 dark:border-slate-700 dark:bg-slate-900/70">
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Category</span>
                 <select
@@ -415,75 +458,69 @@ function ServiceRequestsPage() {
                   ))}
                 </select>
               </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</span>
-                <select
-                  value={form.priority}
-                  onChange={(event) => setForm((prev) => ({ ...prev, priority: event.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
+
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</span>
+                  <select
+                    value={form.priority}
+                    onChange={(event) => setForm((prev) => ({ ...prev, priority: event.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    {PRIORITY_OPTIONS.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Visit time</span>
+                  <input
+                    type="datetime-local"
+                    value={form.preferredVisitTime}
+                    onChange={(event) => setForm((prev) => ({ ...prev, preferredVisitTime: event.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </label>
+              </div>
+
+              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                <FiUploadCloud />
+                Upload image evidence
+                <input type="file" accept="image/*" className="hidden" onChange={(event) => handleImageUpload(event.target.files?.[0])} />
+                {form.imageUrl ? (
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+                    <FiImage size={12} /> Attached
+                  </span>
+                ) : null}
+              </label>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={clearRequestForm}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                 >
-                  {PRIORITY_OPTIONS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Preferred visit time</span>
-                <input
-                  type="datetime-local"
-                  value={form.preferredVisitTime}
-                  onChange={(event) => setForm((prev) => ({ ...prev, preferredVisitTime: event.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
-                />
-              </label>
-            </div>
+                  Clear Draft
+                </button>
+                <button className="rounded-xl bg-gradient-to-r from-cyan-600 via-brand-600 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 hover:brightness-105">
+                  <span className="inline-flex items-center gap-2">
+                    <FiSend /> Submit
+                  </span>
+                </button>
+              </div>
+            </form>
+          </motion.section>
+        ) : null}
 
-            <label className="lg:col-span-2 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              <FiUploadCloud />
-              Upload image evidence
-              <input type="file" accept="image/*" className="hidden" onChange={(event) => handleImageUpload(event.target.files?.[0])} />
-              {form.imageUrl ? (
-                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
-                  <FiImage size={12} /> Attached
-                </span>
-              ) : null}
-            </label>
-
-            <div className="lg:col-span-2 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={clearRequestForm}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-              >
-                Clear Draft
-              </button>
-              <button className="rounded-xl bg-gradient-to-r from-cyan-600 via-brand-600 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 hover:brightness-105">
-                <span className="inline-flex items-center gap-2">
-                  <FiZap size={14} />
-                  <FiSend /> Submit Request
-                </span>
-              </button>
-            </div>
-          </form>
-        </motion.section>
-      ) : null}
-
-      <motion.section
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-slate-900"
+        >
+        <div className="classy-list-toolbar mb-4 flex flex-wrap items-center gap-2">
           <h2 className="mr-auto text-lg font-semibold text-slate-900 dark:text-white">Service Request Board</h2>
-          <button
-            type="button"
-            onClick={() => setShowBoard((prev) => !prev)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-          >
-            {showBoard ? 'Hide List' : 'Show List'}
-          </button>
           <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-200">
             <FiFilter size={12} /> Filter
           </span>
@@ -528,36 +565,40 @@ function ServiceRequestsPage() {
             </span>
           </button>
         </div>
-        {showBoard ? (
-          loading ? (
+        {loading ? (
             <div className="space-y-2">
               <div className="h-20 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
               <div className="h-20 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
               <div className="h-20 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
             </div>
-          ) : !visibleRequests.length ? (
-            <EmptyState
-              message={
-                canCreateRequest ? 'You have not created any requests yet, or none match current filters.' : 'No service requests found.'
-              }
-            />
-          ) : (
-            <ul className="space-y-3">
-              {visibleRequests.map((request) => (
-                <RequestCard
-                  key={request._id}
-                  request={request}
-                  canUpdateStatus={canUpdateStatus}
-                  onStatusUpdate={updateStatus}
-                  statusUpdatingId={statusUpdatingId}
-                />
-              ))}
-            </ul>
-          )
         ) : (
-          <EmptyState message="List is hidden. Click Show List to view requests." />
+          <div className="max-h-[70vh] overflow-y-auto pr-1">
+            {!visibleRequests.length ? (
+              <EmptyState
+                message={
+                  canCreateRequest ? 'You have not created any requests yet, or none match current filters.' : 'No service requests found.'
+                }
+              />
+            ) : (
+              <ul className="classy-list-grid space-y-3">
+                {visibleRequests.map((request) => (
+                  <RequestCard
+                    key={request._id}
+                    request={request}
+                    canUpdateStatus={canUpdateStatus}
+                    onStatusUpdate={updateStatus}
+                    statusUpdatingId={statusUpdatingId}
+                    canDelete={canDeleteRequest}
+                    onDelete={(item) => setDeleteState({ open: true, id: item._id, title: item.title || 'this request' })}
+                    deletingId={deletingId}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         )}
-      </motion.section>
+        </motion.section>
+      </div>
 
       <ConfirmModal
         open={confirmSubmit}
@@ -566,6 +607,15 @@ function ServiceRequestsPage() {
         confirmLabel="Submit"
         onConfirm={confirmCreateComplaint}
         onCancel={() => setConfirmSubmit(false)}
+      />
+
+      <ConfirmModal
+        open={deleteState.open}
+        title="Delete Service Request"
+        description={`Do you want to delete "${deleteState.title}"?`}
+        confirmLabel="Delete"
+        onConfirm={deleteRequest}
+        onCancel={() => setDeleteState({ open: false, id: '', title: '' })}
       />
     </div>
   );

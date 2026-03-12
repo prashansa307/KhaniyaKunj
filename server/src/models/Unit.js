@@ -33,7 +33,7 @@ const unitSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-unitSchema.pre('validate', function syncFlatFields(next) {
+unitSchema.pre('validate', function syncFlatFields() {
   const wing = String(this.wing || '').trim().toUpperCase();
   const flat = String(this.flatNumber || '').trim().toUpperCase();
   const unit = String(this.unitNumber || '').trim().toUpperCase();
@@ -47,20 +47,18 @@ unitSchema.pre('validate', function syncFlatFields(next) {
   this.wing = wing;
   const normalizedFlat = String(this.flatNumber || '').trim().toUpperCase();
   this.unitNumber = wing && normalizedFlat ? `${wing}-${normalizedFlat}` : normalizedFlat || unit;
-  next();
 });
 
-unitSchema.pre('save', function syncLegacyOccupancy(next) {
+unitSchema.pre('save', function syncLegacyOccupancy() {
   if (this.status === 'INACTIVE') {
     this.occupancyStatus = this.occupancyStatus === 'Occupied' ? 'Occupied' : 'Vacant';
-    return next();
+    return;
   }
   if (this.status === 'OCCUPIED') {
     this.occupancyStatus = 'Occupied';
   } else {
     this.occupancyStatus = 'Vacant';
   }
-  next();
 });
 
 unitSchema.index({ societyId: 1, unitNumber: 1 }, { unique: true });

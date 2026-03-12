@@ -9,6 +9,7 @@ const {
   getPendingComplaintsCount,
   getAssignedComplaints,
   updateAssignedStatus,
+  deleteComplaint,
 } = require('../controllers/serviceRequestController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 const { ROLES } = require('../constants/roles');
@@ -52,5 +53,11 @@ router.get(
 // Committee/guard assigned APIs
 router.get('/assigned', protect, getAssignedComplaints);
 router.put('/:id/status', protect, updateAssignedStatus);
+router.delete(
+  '/:id',
+  protect,
+  authorizeRoles(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  deleteComplaint
+);
 
 module.exports = router;

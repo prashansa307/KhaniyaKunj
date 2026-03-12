@@ -3,6 +3,7 @@ import { FiEdit2, FiTrash2, FiUsers, FiHome } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import EditPopup from '../components/EditPopup.jsx';
 
 const INITIAL_FORM = {
   name: '',
@@ -11,6 +12,19 @@ const INITIAL_FORM = {
   relation: 'Father',
   phone: '',
 };
+
+function formatFlatDisplay(flatValue) {
+  const raw = String(flatValue || '').trim();
+  if (!raw || raw.toUpperCase() === 'UNASSIGNED') {
+    return 'Not assigned to any flat yet';
+  }
+  const wingFlatMatch = raw.match(/^([A-Za-z]+)-(\d+)$/);
+  if (wingFlatMatch) {
+    const [, wing, flat] = wingFlatMatch;
+    return `Tower ${wing.toUpperCase()}, Flat ${flat}`;
+  }
+  return raw;
+}
 
 function SummaryCard({ label, value }) {
   return (
@@ -39,7 +53,6 @@ function FamilyMembersPage() {
   const [flatRows, setFlatRows] = useState([]);
   const [flatDetails, setFlatDetails] = useState(null);
   const [selectedFlatId, setSelectedFlatId] = useState('');
-  const [showFlatList, setShowFlatList] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState('');
 
   async function loadResidentData() {
@@ -181,10 +194,11 @@ function FamilyMembersPage() {
         <div className="space-y-5">
           <section className="rounded-3xl border border-cyan-200/70 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 p-5 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-700 dark:text-cyan-300">My Family Members</p>
-          <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Flat Population Registry</h2>
+          <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Family Member Registry</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            Flat: <span className="font-semibold">{myData.flat?.flatNumber || '-'}</span>
+            Flat: <span className="font-semibold">{formatFlatDisplay(myData.flat?.flatNumber)}</span>
           </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Format example: A-101 means Tower A, Flat 101.</p>
         </section>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -196,10 +210,10 @@ function FamilyMembersPage() {
         </div>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-700 dark:bg-slate-900">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{editingId ? 'Edit Family Member' : 'Add Family Member'}</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Add Family Member</h3>
           <form onSubmit={submitMember} className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Full Name" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
-            <input value={form.age} onChange={(e) => setForm((prev) => ({ ...prev, age: e.target.value }))} placeholder="Age" type="number" min="0" max="130" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Enter full name" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.age} onChange={(e) => setForm((prev) => ({ ...prev, age: e.target.value }))} placeholder="Enter age" type="number" min="0" max="130" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             <select value={form.gender} onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -212,19 +226,46 @@ function FamilyMembersPage() {
                 </option>
               ))}
             </select>
-            <input value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Phone Number (optional)" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Enter phone number (optional)" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             <div className="flex items-center gap-2">
               <button type="submit" disabled={saving} className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-60">
-                {saving ? 'Saving...' : editingId ? 'Update Member' : 'Add Member'}
+                {saving ? 'Saving...' : 'Add Member'}
               </button>
-              {editingId ? (
-                <button type="button" onClick={() => { setEditingId(''); setForm(INITIAL_FORM); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-                  Cancel
-                </button>
-              ) : null}
             </div>
           </form>
         </section>
+        <EditPopup
+          open={Boolean(editingId)}
+          title="Edit Family Member"
+          onClose={() => { setEditingId(''); setForm(INITIAL_FORM); }}
+          maxWidthClass="max-w-2xl"
+        >
+          <form onSubmit={submitMember} className="grid gap-3 md:grid-cols-2">
+            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Enter full name" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <input value={form.age} onChange={(e) => setForm((prev) => ({ ...prev, age: e.target.value }))} placeholder="Enter age" type="number" min="0" max="130" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <select value={form.gender} onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+            <select value={form.relation} onChange={(e) => setForm((prev) => ({ ...prev, relation: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+              {['Father', 'Mother', 'Son', 'Daughter', 'Grandfather', 'Grandmother', 'Relative', 'Spouse', 'Sibling', 'Other'].map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+            <input value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Enter phone number (optional)" className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 md:col-span-2" />
+            <div className="md:col-span-2 flex items-center gap-2">
+              <button type="submit" disabled={saving} className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-60">
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button type="button" onClick={() => { setEditingId(''); setForm(INITIAL_FORM); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </EditPopup>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-700 dark:bg-slate-900">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Family Members List</h3>
@@ -287,50 +328,52 @@ function FamilyMembersPage() {
     <div className="space-y-5">
       <section className="rounded-3xl border border-indigo-200/70 bg-gradient-to-r from-indigo-50 via-white to-cyan-50 p-5 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-700 dark:text-indigo-300">Family Member Registry</p>
-        <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Flat-wise Population View</h2>
+        <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Flat-wise Family Overview</h2>
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr,1.4fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-700 dark:bg-slate-900">
+        <section className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Flats & Total Members</h3>
-            <button
-              type="button"
-              onClick={() => setShowFlatList((prev) => !prev)}
-              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              {showFlatList ? 'Hide List' : 'Show List'}
-            </button>
           </div>
-          <div className={`mt-3 overflow-y-auto ${showFlatList ? 'max-h-[58vh]' : 'max-h-0 overflow-hidden'}`}>
+          <div className="mt-3 max-h-[58vh] overflow-y-auto">
             {flatRows.map((row) => (
               <button
                 key={row._id}
                 type="button"
                 onClick={() => setSelectedFlatId(String(row._id))}
-                className={`mb-2 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left ${selectedFlatId === String(row._id) ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-900/20' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'}`}
+                title={`Open family details for ${formatFlatDisplay(row.flatNumber)}`}
+                className={`classy-list-card mb-2 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left ${selectedFlatId === String(row._id) ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-900/20' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'}`}
               >
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                <span
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100"
+                  title={formatFlatDisplay(row.flatNumber)}
+                >
                   <FiHome size={14} />
-                  {row.flatNumber}
+                  {formatFlatDisplay(row.flatNumber)}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-700">
-                  <FiUsers size={12} />
-                  {row.totalMembers}
+                <span className="group relative inline-flex items-center">
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-700"
+                    title={`Total family members: ${row.totalMembers}`}
+                  >
+                    <FiUsers size={12} />
+                    {row.totalMembers}
+                  </span>
+                  <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                    Total family members in this flat
+                  </span>
                 </span>
               </button>
             ))}
             {!flatRows.length ? <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">No family member records yet.</p> : null}
           </div>
-          {!showFlatList && flatRows.length ? (
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">List hidden. Click "Show List" to browse all flats.</p>
-          ) : null}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-700 dark:bg-slate-900">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Flat Details</h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {flatDetails?.flatNumber ? `Flat ${flatDetails.flatNumber}` : 'Select a flat to view members'}
+            {flatDetails?.flatNumber ? `Selected: ${formatFlatDisplay(flatDetails.flatNumber)}` : 'Select a flat to view members'}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <SummaryCard label="Total" value={memberSummary.totalMembers || 0} />
@@ -372,3 +415,4 @@ function FamilyMembersPage() {
 }
 
 export default FamilyMembersPage;
+

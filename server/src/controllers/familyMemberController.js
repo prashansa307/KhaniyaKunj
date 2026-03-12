@@ -142,6 +142,33 @@ async function resolveResidentFlatContext(user) {
   return fallback;
 }
 
+async function migrateLegacyUnassignedMembersIfNeeded(user, context) {
+  if (!user?._id || !context?.societyId) return;
+  if (!context.unitId) return;
+  const targetFlatId = String(context.flatId || '');
+  const targetFlatNumber = String(context.flatNumber || '').trim();
+  if (!targetFlatId || !targetFlatNumber || targetFlatNumber.toUpperCase() === 'UNASSIGNED') return;
+
+  await FamilyMember.updateMany(
+    {
+      societyId: context.societyId,
+      residentId: user._id,
+      $or: [
+        { flatId: `user:${user._id}` },
+        { flatId: { $regex: `^resident:` } },
+        { flatNumber: { $in: ['UNASSIGNED', '', null] } },
+      ],
+    },
+    {
+      $set: {
+        flatId: targetFlatId,
+        flatNumber: targetFlatNumber,
+        unitId: context.unitId,
+      },
+    }
+  );
+}
+
 async function ensureWritableSocietyId(context, user) {
   if (context?.societyId && mongoose.Types.ObjectId.isValid(String(context.societyId))) {
     return context.societyId;
@@ -177,6 +204,7 @@ async function getMyFamilyMembers(req, res) {
     if (!context) {
       return res.status(400).json({ success: false, message: 'Unable to resolve resident flat mapping.', data: null });
     }
+    await migrateLegacyUnassignedMembersIfNeeded(req.user, context);
 
     const rows = await FamilyMember.find({
       societyId: context.societyId,
@@ -207,6 +235,7 @@ async function addMyFamilyMember(req, res) {
     if (!context) {
       return res.status(400).json({ success: false, message: 'Unable to resolve resident flat mapping.', data: null });
     }
+    await migrateLegacyUnassignedMembersIfNeeded(req.user, context);
 
     const input = sanitizeMemberInput(req.body);
     const error = validateMemberInput(input);
@@ -241,6 +270,7 @@ async function updateMyFamilyMember(req, res) {
     if (!context) {
       return res.status(400).json({ success: false, message: 'Unable to resolve resident flat mapping.', data: null });
     }
+    await migrateLegacyUnassignedMembersIfNeeded(req.user, context);
 
     const { id } = req.params;
     const member = await FamilyMember.findOne({
@@ -278,6 +308,7 @@ async function deleteMyFamilyMember(req, res) {
     if (!context) {
       return res.status(400).json({ success: false, message: 'Unable to resolve resident flat mapping.', data: null });
     }
+    await migrateLegacyUnassignedMembersIfNeeded(req.user, context);
 
     const { id } = req.params;
     const deleted = await FamilyMember.findOneAndDelete({

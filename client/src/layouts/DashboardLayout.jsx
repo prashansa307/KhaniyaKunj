@@ -40,6 +40,7 @@ const moduleToSidebarItem = {
   domesticStaff: { to: '/app/domestic-staff', label: 'Domestic Staff', icon: FiBriefcase },
   familyMembers: { to: '/app/family-members', label: 'Family Members', icon: FiUsers },
   polls: { to: '/app/polls', label: 'Polls', icon: FiBarChart2 },
+  marketplace: { to: '/app/marketplace', label: 'Society Marketplace', icon: FiPackage },
 };
 
 function DashboardLayout() {
@@ -56,6 +57,7 @@ function DashboardLayout() {
 
   const sidebarItems = effectiveModules
     .map((moduleKey) => {
+      if (role === 'admin' && moduleKey === 'residents') return null;
       if (role === 'guard' && moduleKey === 'domesticStaff') return null;
       if (role === 'guard' && moduleKey === 'visitors') {
         return { to: '/app/visitor-management', label: 'Gate Management', icon: FiShield };

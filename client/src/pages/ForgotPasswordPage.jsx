@@ -72,7 +72,7 @@ function ForgotPasswordPage() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-10 py-3 text-sm text-slate-900 outline-none transition duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:shadow-[0_0_0_4px_rgba(99,102,241,0.16)]"
-              placeholder="name@example.com"
+              placeholder="Enter your email (e.g. name@example.com)"
               required
             />
             </div>
@@ -110,3 +110,4 @@ function ForgotPasswordPage() {
 }
 
 export default ForgotPasswordPage;
+

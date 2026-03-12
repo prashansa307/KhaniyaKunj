@@ -296,6 +296,29 @@ const markUnitVacant = asyncHandler(async (req, res) => {
   return successResponse(res, { message: 'Unit marked as vacant.', data: toUnitDto(fresh) });
 });
 
+const deleteUnit = asyncHandler(async (req, res) => {
+  const societyId = await resolveScopedSocietyId(req);
+  const unit = await Unit.findOne({ _id: req.params.id, isDeleted: { $ne: true }, ...(societyId ? { societyId } : {}) });
+  if (!unit) {
+    return res.status(404).json({ success: false, message: 'Unit not found.', data: null });
+  }
+
+  const linkedUserIds = [unit.assignedResidentId, unit.tenantId, unit.ownerId].filter(Boolean);
+  if (linkedUserIds.length) {
+    await User.updateMany({ _id: { $in: linkedUserIds } }, { $set: { unitId: null, flatId: null } });
+  }
+
+  unit.assignedResidentId = null;
+  unit.tenantId = null;
+  unit.ownerId = null;
+  unit.status = 'INACTIVE';
+  unit.occupancyStatus = 'Vacant';
+  unit.isDeleted = true;
+  await unit.save();
+
+  return successResponse(res, { message: 'Unit deleted successfully.', data: null });
+});
+
 module.exports = {
   listUnits,
   getUnitSummary,
@@ -303,4 +326,5 @@ module.exports = {
   updateUnit,
   assignResidentToUnit,
   markUnitVacant,
+  deleteUnit,
 };

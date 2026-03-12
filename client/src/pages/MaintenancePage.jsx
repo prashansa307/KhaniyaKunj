@@ -317,7 +317,7 @@ function MaintenancePage() {
               type="number"
               min="1"
               step="0.01"
-              placeholder="e.g. 2500"
+              placeholder="Enter maintenance amount (e.g. 2500)"
               value={form.amount}
               onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
@@ -378,8 +378,8 @@ function MaintenancePage() {
         </AppCard>
       </div>
 
-      <AppCard className="p-5">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+      <AppCard className="classy-list-shell p-5">
+        <div className="classy-list-toolbar mb-4 flex flex-wrap items-center gap-3">
           <h3 className="mr-auto text-lg font-semibold text-slate-900 dark:text-white">Bill Register</h3>
           <div className="relative">
             <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -410,7 +410,7 @@ function MaintenancePage() {
             type="number"
             min="2000"
             max="2100"
-            placeholder="Year"
+            placeholder="Enter year (YYYY)"
             value={filters.year}
             onChange={(event) => setFilters((prev) => ({ ...prev, year: event.target.value, page: 1 }))}
             className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800"
@@ -422,7 +422,7 @@ function MaintenancePage() {
         ) : !visibleBills.length ? (
           <EmptyState message="No bills found for selected filters." />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white/75 p-2 dark:border-slate-700">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-100/90 dark:bg-slate-800/80">
                 <tr className="text-left text-slate-600 dark:text-slate-300">
@@ -490,3 +490,4 @@ function MaintenancePage() {
 }
 
 export default MaintenancePage;
+

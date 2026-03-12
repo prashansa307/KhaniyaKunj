@@ -81,7 +81,28 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
   const profileButtonRef = useRef(null);
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  const pageTitle = sidebarItems.find((item) => location.pathname.startsWith(item.to))?.label || 'Workspace';
+  const routeTitleMap = {
+    '/app/dashboard': 'Command Dashboard',
+    '/app/societies': 'Society Portfolio',
+    '/app/user-management': 'User Access Management',
+    '/app/unit-management': 'Unit Inventory',
+    '/app/residents': 'Resident Directory',
+    '/app/amenities': 'Amenity Operations',
+    '/app/maintenance': 'Maintenance Billing',
+    '/app/payments': 'Payment Ledger',
+    '/app/service-requests': 'Service Requests',
+    '/app/visitor-management': 'Visitor & Gate Operations',
+    '/app/notices': 'Notices & Alerts',
+    '/app/reports': 'Insights & Reports',
+    '/app/lost-found': 'Lost & Found',
+    '/app/domestic-staff': 'Domestic Staff Operations',
+    '/app/family-members': 'Family Member Registry',
+    '/app/polls': 'Community Polls',
+    '/app/marketplace': 'Society Marketplace',
+    '/app/my-profile': 'Profile & Settings',
+  };
+  const matchedRouteTitle = Object.entries(routeTitleMap).find(([path]) => location.pathname.startsWith(path))?.[1];
+  const pageTitle = matchedRouteTitle || sidebarItems.find((item) => location.pathname.startsWith(item.to))?.label || 'Workspace';
   const roleLabel = admin?.role ? `${String(admin.role).replace('_', ' ')} panel` : 'Workspace';
   const quickItems = sidebarItems.slice(0, 5);
   const canPostNotice = admin?.role === 'admin' || admin?.role === 'super_admin';
@@ -128,7 +149,8 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
     if (!length) return 32;
     return Math.max(24, Math.min(90, Math.ceil(length / 6)));
   }, [tickerFeed]);
-  const showTicker = Boolean(tickerFeed) && !dismissTicker;
+  // Global ticker banner disabled as requested (remove alert strip from all panels).
+  const showTicker = false;
   const userName = admin?.name || 'User';
   const userRole = admin?.role
     ? String(admin.role)
@@ -697,13 +719,40 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
     }
   }
 
+  const viewerTimeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local time', []);
+
+  function parseNoticeDate(value) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
+  }
+
   function formatNoticeTime(value) {
-    if (!value) return '-';
-    return new Date(value).toLocaleString();
+    const parsed = parseNoticeDate(value);
+    if (!parsed) return '-';
+    return parsed.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+
+  function getAlertStatus(row) {
+    const now = Date.now();
+    const start = parseNoticeDate(row?.startTime || row?.startDate);
+    const end = parseNoticeDate(row?.endTime || row?.endDate);
+    if (!start || !end) return String(row?.status || 'Unknown');
+    if (now < start.getTime()) return 'Scheduled';
+    if (now > end.getTime()) return 'Expired';
+    return 'Active';
   }
 
   return (
-    <div className="saas-shell h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+    <div className="workspace-skin saas-shell h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       <div className="flex h-full">
         <motion.aside
           animate={{ width: collapsed ? 88 : 260 }}
@@ -730,10 +779,10 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                    `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                       isActive
-                        ? 'bg-gradient-to-r from-cyan-500/30 to-teal-500/25 text-cyan-100 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.45)]'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        ? 'bg-gradient-to-r from-blue-400/35 via-sky-400/28 to-cyan-400/30 text-white shadow-[0_8px_20px_rgba(14,165,233,0.24)] ring-1 ring-sky-100/40'
+                        : 'text-slate-100/90 hover:bg-white/12 hover:text-white'
                     }`
                   }
                 >
@@ -982,7 +1031,7 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="absolute right-4 top-[76px] z-40 w-[min(95vw,420px)] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 md:right-6"
+                  className="absolute right-4 top-[76px] z-40 flex max-h-[82vh] w-[min(96vw,520px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 md:right-6"
                 >
                   <div className="mb-2 flex items-center justify-between">
                     <div>
@@ -1007,7 +1056,7 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                     </div>
                   </div>
 
-                  <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1">
+                  <div className="min-h-[150px] flex-1 space-y-2 overflow-y-auto pr-1">
                     {latestNotifications.map((item) => (
                       <div
                         key={item._id}
@@ -1057,7 +1106,7 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                   </div>
 
                   {canPostNotice && (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/50">
+                    <div className="mt-3 max-h-[42vh] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/50">
                       <button
                         type="button"
                         onClick={() => setShowNoticeComposer((prev) => !prev)}
@@ -1068,16 +1117,6 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
 
                       {showNoticeComposer && (
                         <div className="mt-2 space-y-2">
-                          <div className="flex items-center justify-end">
-                            <button
-                              type="button"
-                              onClick={() => setShowNoticeComposer(false)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                            >
-                              <FiX size={12} />
-                              Hide
-                            </button>
-                          </div>
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               type="button"
@@ -1114,14 +1153,14 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                               <input
                                 value={noticeForm.title}
                                 onChange={(event) => setNoticeForm((prev) => ({ ...prev, title: event.target.value }))}
-                                placeholder="Notice title"
+                                placeholder="Enter notice title"
                                 className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
                                 required
                               />
                               <textarea
                                 value={noticeForm.description}
                                 onChange={(event) => setNoticeForm((prev) => ({ ...prev, description: event.target.value }))}
-                                placeholder="Notice message"
+                                placeholder="Enter notice message"
                                 className="w-full min-h-20 rounded-lg border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
                                 required
                               />
@@ -1139,14 +1178,14 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                               <input
                                 value={alertForm.title}
                                 onChange={(event) => setAlertForm((prev) => ({ ...prev, title: event.target.value }))}
-                                placeholder="Alert title"
+                                placeholder="Enter alert title"
                                 className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
                                 required
                               />
                               <textarea
                                 value={alertForm.message}
                                 onChange={(event) => setAlertForm((prev) => ({ ...prev, message: event.target.value }))}
-                                placeholder="Alert message"
+                                placeholder="Enter alert message"
                                 className="w-full min-h-20 rounded-lg border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
                                 required
                               />
@@ -1200,20 +1239,37 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                               </button>
                               <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900/40">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recent Alerts</p>
+                                <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                                  Status here is schedule-based. Floating ticker is turned off. Times are shown in {viewerTimeZone}.
+                                </p>
                                 <div className="mt-2 max-h-36 space-y-1 overflow-auto pr-1">
-                                  {(alertHistory || []).slice(0, 10).map((row) => (
+                                  {(alertHistory || []).slice(0, 10).map((row) => {
+                                    const statusLabel = getAlertStatus(row);
+                                    const statusClass =
+                                      statusLabel === 'Active'
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : statusLabel === 'Scheduled'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
+                                    const startTime = row.startTime || row.startDate;
+                                    const endTime = row.endTime || row.endDate;
+                                    return (
                                     <div key={row._id} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-900">
                                       <div className="flex items-center justify-between gap-2">
                                         <span className="truncate font-semibold text-slate-800 dark:text-slate-100">{row.title}</span>
-                                        <span className={`rounded-full px-1.5 py-0.5 font-semibold ${row.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
-                                          {row.status}
+                                        <span className={`rounded-full px-1.5 py-0.5 font-semibold ${statusClass}`}>
+                                          {statusLabel}
                                         </span>
                                       </div>
                                       <p className="truncate text-slate-500 dark:text-slate-400">
-                                        {formatNoticeTime(row.startTime || row.startDate)} - {formatNoticeTime(row.endTime || row.endDate)}
+                                        {formatNoticeTime(startTime)} - {formatNoticeTime(endTime)}
                                       </p>
+                                      {statusLabel === 'Active' ? (
+                                        <p className="truncate text-[10px] text-emerald-700 dark:text-emerald-300">Expires at {formatNoticeTime(endTime)}</p>
+                                      ) : null}
                                     </div>
-                                  ))}
+                                    );
+                                  })}
                                   {!alertHistory.length ? (
                                     <p className="text-xs text-slate-500 dark:text-slate-400">No alert history yet.</p>
                                   ) : null}
@@ -1281,7 +1337,7 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                           <textarea
                             value={emergencyForm.description}
                             onChange={(event) => setEmergencyForm((prev) => ({ ...prev, description: event.target.value }))}
-                            placeholder="Describe the emergency..."
+                            placeholder="Enter emergency details"
                             className="min-h-28 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
                           />
                           {emergencyError ? (
@@ -1547,7 +1603,11 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `rounded-xl p-2 ${isActive ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200' : 'text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`
+                    `rounded-xl p-2 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 shadow-[0_6px_14px_rgba(14,165,233,0.22)] dark:bg-cyan-900/40 dark:text-cyan-200'
+                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                    }`
                   }
                 >
                   <Icon size={18} />
@@ -1562,3 +1622,4 @@ function Layout({ sidebarItems, admin, onLogout, theme, onToggleTheme, children 
 }
 
 export default Layout;
+

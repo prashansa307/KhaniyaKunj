@@ -476,6 +476,30 @@ async function updateAssignedStatus(req, res) {
   }
 }
 
+async function deleteComplaint(req, res) {
+  try {
+    const actorRole = normalizeRole(req.user?.role);
+    if (![ROLES.ADMIN, ROLES.SUPER_ADMIN].includes(actorRole)) {
+      return res.status(403).json({ message: 'Forbidden: only admin can delete service requests.' });
+    }
+
+    const resolvedSocietyId = await resolveRequestSocietyId(req);
+    const filter = { _id: req.params.id };
+    if (resolvedSocietyId || req.user?.societyId) {
+      filter.societyId = resolvedSocietyId || req.user.societyId;
+    }
+
+    const deleted = await ServiceRequest.findOneAndDelete(filter);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Service request not found.' });
+    }
+
+    return res.status(200).json({ success: true, message: 'Service request deleted successfully.', data: null });
+  } catch {
+    return res.status(400).json({ message: 'Failed to delete service request.' });
+  }
+}
+
 async function getResidentServiceHistory(req, res) {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
@@ -531,4 +555,5 @@ module.exports = {
   getAssignedComplaints,
   updateAssignedStatus,
   getResidentServiceHistory,
+  deleteComplaint,
 };

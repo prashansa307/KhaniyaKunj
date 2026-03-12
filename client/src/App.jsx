@@ -22,6 +22,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import PollsPage from './pages/PollsPage.jsx';
 import UnitManagementPage from './pages/UnitManagementPage.jsx';
+import MarketplacePage from './pages/MarketplacePage.jsx';
 
 const MODULE_TO_PATH = {
   dashboard: '/app/dashboard',
@@ -41,7 +42,42 @@ const MODULE_TO_PATH = {
   domesticStaff: '/app/domestic-staff',
   familyMembers: '/app/family-members',
   polls: '/app/polls',
+  marketplace: '/app/marketplace',
 };
+
+const MODULE_PRIORITY = [
+  'dashboard',
+  'societies',
+  'residents',
+  'amenities',
+  'maintenance',
+  'serviceRequests',
+  'payments',
+  'reports',
+  'myProfile',
+  'notices',
+  'visitors',
+  'userManagement',
+  'unitManagement',
+  'lostFound',
+  'domesticStaff',
+  'familyMembers',
+  'polls',
+  'marketplace',
+];
+
+function resolveLandingPath({ role, allowedModules }) {
+  const normalizedRole = String(role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const isGuard = normalizedRole.includes('guard') || normalizedRole.includes('security');
+  if (isGuard) return '/app/visitor-management';
+
+  const ordered = MODULE_PRIORITY.filter((key) => (allowedModules || []).includes(key));
+  const firstAllowedPath = ordered.map((moduleKey) => MODULE_TO_PATH[moduleKey]).find(Boolean);
+  return firstAllowedPath || '/app/dashboard';
+}
 
 function LoadingScreen() {
   return (
@@ -58,23 +94,8 @@ function AppLanding() {
   if (!authChecked) return <LoadingScreen />;
   if (!token) return <Navigate to="/auth" replace />;
 
-  const role = String(admin?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-  const roleLooksGuard = role.includes('guard') || role.includes('security');
-  if (['admin', 'super_admin', 'committee', 'tenant', 'resident', 'owner'].includes(role)) {
-    return <Navigate to="/app/dashboard" replace />;
-  }
-  if (roleLooksGuard) {
-    return <Navigate to="/app/visitor-management" replace />;
-  }
-
-  const firstAllowedPath = (allowedModules || [])
-    .map((moduleKey) => MODULE_TO_PATH[moduleKey])
-    .find(Boolean);
-
-  return <Navigate to={firstAllowedPath || '/app/dashboard'} replace />;
+  const firstTabPath = resolveLandingPath({ role: admin?.role, allowedModules });
+  return <Navigate to={firstTabPath} replace />;
 }
 
 function ProtectedRoute() {
@@ -132,6 +153,7 @@ function App() {
           <Route path="domestic-staff" element={<ModuleRoute moduleKey="domesticStaff" element={<DomesticStaffPage />} />} />
           <Route path="family-members" element={<ModuleRoute moduleKey="familyMembers" element={<FamilyMembersPage />} />} />
           <Route path="polls" element={<ModuleRoute moduleKey="polls" element={<PollsPage />} />} />
+          <Route path="marketplace" element={<ModuleRoute moduleKey="marketplace" element={<MarketplacePage />} />} />
           <Route
             path="settings"
             element={<ModuleRoute moduleKey="dashboard" element={<ModulePage title="Settings" description="Configure workspace preferences and policies." />} />}

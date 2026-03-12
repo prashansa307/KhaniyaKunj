@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { FiCheckCircle, FiClock, FiCopy, FiKey, FiPhone, FiRefreshCw, FiShield, FiTruck, FiUserPlus, FiXCircle } from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiCopy, FiImage, FiKey, FiPhone, FiRefreshCw, FiSearch, FiShield, FiTruck, FiUploadCloud, FiUserPlus, FiXCircle } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import EditPopup from '../components/EditPopup.jsx';
+import { readImageAsDataUrl } from '../utils/imageUpload.js';
 
 const WORK_TYPES = ['maid', 'cook', 'driver', 'nanny', 'other'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -30,6 +32,8 @@ function DomesticStaffPage() {
   const [attendanceLogs, setAttendanceLogs] = useState([]);
 
   const [editingId, setEditingId] = useState('');
+  const [residentSearch, setResidentSearch] = useState('');
+  const [residentStatusFilter, setResidentStatusFilter] = useState('all');
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -104,6 +108,17 @@ function DomesticStaffPage() {
       expectedEntryTime: '',
       expectedExitTime: '',
     });
+  }
+
+  async function uploadStaffPhoto(file) {
+    if (!file) return;
+    try {
+      const imageDataUrl = await readImageAsDataUrl(file);
+      setForm((prev) => ({ ...prev, photo: imageDataUrl }));
+      showToast('Photo attached successfully.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to attach photo.', 'error');
+    }
   }
 
   async function submitStaff(event) {
@@ -285,6 +300,17 @@ function DomesticStaffPage() {
     () => staffList.find((s) => s._id === attendanceStaffId)?.name || '',
     [attendanceStaffId, staffList]
   );
+  const filteredResidentStaff = useMemo(() => {
+    if (!isResident) return staffList;
+    const needle = residentSearch.trim().toLowerCase();
+    return staffList.filter((item) => {
+      const haystack = `${item.name || ''} ${item.workType || ''} ${item.phone || ''} ${item.houseNumber || ''}`.toLowerCase();
+      const matchesSearch = !needle || haystack.includes(needle);
+      const normalizedStatus = String(item.status || '').toLowerCase();
+      const matchesStatus = residentStatusFilter === 'all' ? true : normalizedStatus === residentStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [isResident, residentSearch, residentStatusFilter, staffList]);
 
   return (
     <div className="space-y-5">
@@ -303,97 +329,191 @@ function DomesticStaffPage() {
 
       {isResident && (
         <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <h3 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
-              <FiUserPlus />
-              {editingId ? 'Edit Staff' : 'Register Staff'}
-            </h3>
-            <form onSubmit={submitStaff} className="mt-4 grid gap-3 md:grid-cols-2">
-              <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required placeholder="Name" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-              <input value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} required placeholder="Phone Number" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-              <input value={form.photo} onChange={(e) => setForm((prev) => ({ ...prev, photo: e.target.value }))} placeholder="Photo URL (optional)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-              <select value={form.workType} onChange={(e) => setForm((prev) => ({ ...prev, workType: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-                {WORK_TYPES.map((workType) => (
-                  <option key={workType} value={workType}>{workType}</option>
-                ))}
-              </select>
-              <input value={form.houseNumber} onChange={(e) => setForm((prev) => ({ ...prev, houseNumber: e.target.value }))} required placeholder="Assigned House (Flat/Villa)" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-              <div className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Working Days</p>
-                <div className="flex flex-wrap gap-2">
-                  {DAYS.map((day) => (
-                    <label key={day} className="inline-flex items-center gap-1 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={form.workingDays.includes(day)}
-                        onChange={(e) => {
-                          setForm((prev) => ({
-                            ...prev,
-                            workingDays: e.target.checked
-                              ? [...prev.workingDays, day]
-                              : prev.workingDays.filter((d) => d !== day),
-                          }));
-                        }}
-                      />
-                      {day}
-                    </label>
-                  ))}
+          <div className="grid gap-5 xl:grid-cols-[390px,1fr] xl:items-start">
+            <section className="xl:sticky xl:top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
+                    <FiUserPlus />
+                    Register Staff
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">Add domestic helpers with timing and working-day schedule.</p>
                 </div>
+                <span className="rounded-full bg-cyan-50 px-2 py-1 text-[11px] font-semibold text-cyan-700">{staffList.length} total</span>
               </div>
-              <input type="time" value={form.expectedEntryTime} onChange={(e) => setForm((prev) => ({ ...prev, expectedEntryTime: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-              <input type="time" value={form.expectedExitTime} onChange={(e) => setForm((prev) => ({ ...prev, expectedExitTime: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-              <div className="md:col-span-2 flex gap-2">
-                <button className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700">
-                  {editingId ? 'Update Staff' : 'Add Staff'}
-                </button>
-                {editingId && (
+              <form onSubmit={submitStaff} className="mt-4 grid gap-3 md:grid-cols-2">
+                <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required placeholder="Staff full name" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <input value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} required placeholder="Staff phone number" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">
+                  <FiUploadCloud />
+                  Upload staff photo (optional)
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadStaffPhoto(e.target.files?.[0])} />
+                </label>
+                <select value={form.workType} onChange={(e) => setForm((prev) => ({ ...prev, workType: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                  {WORK_TYPES.map((workType) => (
+                    <option key={workType} value={workType}>{workType}</option>
+                  ))}
+                </select>
+                <input value={form.houseNumber} onChange={(e) => setForm((prev) => ({ ...prev, houseNumber: e.target.value }))} required placeholder="Assigned house/flat number" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <div className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Working Days</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DAYS.map((day) => (
+                      <label key={day} className="inline-flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={form.workingDays.includes(day)}
+                          onChange={(e) => {
+                            setForm((prev) => ({
+                              ...prev,
+                              workingDays: e.target.checked
+                                ? [...prev.workingDays, day]
+                                : prev.workingDays.filter((d) => d !== day),
+                            }));
+                          }}
+                        />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <input type="time" value={form.expectedEntryTime} onChange={(e) => setForm((prev) => ({ ...prev, expectedEntryTime: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <input type="time" value={form.expectedExitTime} onChange={(e) => setForm((prev) => ({ ...prev, expectedExitTime: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                {form.photo ? (
+                  <a href={form.photo} target="_blank" rel="noreferrer" className="md:col-span-2 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+                    <FiImage size={12} /> View uploaded photo
+                  </a>
+                ) : null}
+                <div className="md:col-span-2 flex gap-2">
+                  <button className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700">
+                    Add Staff
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <EditPopup open={Boolean(editingId)} title="Edit Staff" onClose={resetForm} maxWidthClass="max-w-3xl">
+              <form onSubmit={submitStaff} className="grid gap-3 md:grid-cols-2">
+                <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required placeholder="Staff full name" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <input value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} required placeholder="Staff phone number" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600">
+                  <FiUploadCloud />
+                  Upload staff photo (optional)
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadStaffPhoto(e.target.files?.[0])} />
+                </label>
+                <select value={form.workType} onChange={(e) => setForm((prev) => ({ ...prev, workType: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                  {WORK_TYPES.map((workType) => (
+                    <option key={workType} value={workType}>{workType}</option>
+                  ))}
+                </select>
+                <input value={form.houseNumber} onChange={(e) => setForm((prev) => ({ ...prev, houseNumber: e.target.value }))} required placeholder="Assigned house/flat number" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <div className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Working Days</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DAYS.map((day) => (
+                      <label key={day} className="inline-flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={form.workingDays.includes(day)}
+                          onChange={(e) => {
+                            setForm((prev) => ({
+                              ...prev,
+                              workingDays: e.target.checked
+                                ? [...prev.workingDays, day]
+                                : prev.workingDays.filter((d) => d !== day),
+                            }));
+                          }}
+                        />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <input type="time" value={form.expectedEntryTime} onChange={(e) => setForm((prev) => ({ ...prev, expectedEntryTime: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <input type="time" value={form.expectedExitTime} onChange={(e) => setForm((prev) => ({ ...prev, expectedExitTime: e.target.value }))} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                {form.photo ? (
+                  <a href={form.photo} target="_blank" rel="noreferrer" className="md:col-span-2 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+                    <FiImage size={12} /> View uploaded photo
+                  </a>
+                ) : null}
+                <div className="md:col-span-2 flex gap-2">
+                  <button className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700">
+                    Update Staff
+                  </button>
                   <button type="button" onClick={resetForm} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700">
                     Cancel
                   </button>
-                )}
+                </div>
+              </form>
+            </EditPopup>
+
+            <section className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="classy-list-toolbar mb-3 flex flex-wrap items-center gap-2">
+                <h3 className="mr-auto text-lg font-semibold text-slate-900">Staff List</h3>
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                  <FiSearch className="text-slate-400" />
+                  <input
+                    value={residentSearch}
+                    onChange={(e) => setResidentSearch(e.target.value)}
+                    placeholder="Search by name, phone, type, house"
+                    className="w-48 bg-transparent text-sm outline-none"
+                  />
+                </div>
+                <select
+                  value={residentStatusFilter}
+                  onChange={(e) => setResidentStatusFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="all">All status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{filteredResidentStaff.length} shown</span>
               </div>
-            </form>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <h3 className="text-lg font-semibold text-slate-900">Staff List</h3>
-            <div className="mt-4 space-y-3">
-              {staffList.map((item) => (
-                <article key={item._id} className="rounded-xl border border-slate-200 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold text-slate-900">{item.name} ({item.workType})</p>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{item.status}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">Phone: {item.phone} | House: {item.houseNumber}</p>
-                  <p className="mt-1 text-xs text-slate-500">Days: {(item.workingDays || []).join(', ') || '-'}</p>
-                  <p className="mt-1 text-xs text-slate-500">Expected: {item.expectedEntryTime || '-'} to {item.expectedExitTime || '-'}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button onClick={() => startEdit(item)} className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white">Edit</button>
-                    <button onClick={() => deleteStaff(item._id)} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white">Remove</button>
-                    <button onClick={() => loadAttendance(item._id)} className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">Attendance History</button>
-                  </div>
-                </article>
-              ))}
-              {!staffList.length && <p className="text-sm text-slate-500">No staff registered yet.</p>}
-            </div>
-          </section>
-
-          {attendanceStaffId && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-              <h3 className="text-lg font-semibold text-slate-900">Attendance History: {selectedAttendanceName}</h3>
-              <div className="mt-3 space-y-2">
-                {attendanceLogs.map((row) => (
-                  <div key={row._id} className="rounded-lg border border-slate-200 p-3 text-sm">
-                    <p>Date: {row.date}</p>
-                    <p>Entry: {row.entryTime ? new Date(row.entryTime).toLocaleString() : '-'}</p>
-                    <p>Exit: {row.exitTime ? new Date(row.exitTime).toLocaleString() : '-'}</p>
-                    <p>Guard: {row.guardId?.name || '-'}</p>
-                  </div>
+              <div className="classy-list-grid mt-3 grid gap-3 lg:grid-cols-2">
+                {filteredResidentStaff.map((item) => (
+                  <article key={item._id} className="classy-list-card rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-slate-900">{item.name} ({item.workType})</p>
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${String(item.status || '').toLowerCase() === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'}`}>{item.status}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">Phone: {item.phone} | House: {item.houseNumber}</p>
+                    {item.photo ? (
+                      <a href={item.photo} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200">
+                        <FiImage size={11} /> View photo
+                      </a>
+                    ) : null}
+                    <p className="mt-1 text-xs text-slate-500">Days: {(item.workingDays || []).join(', ') || '-'}</p>
+                    <p className="mt-1 text-xs text-slate-500">Expected: {item.expectedEntryTime || '-'} to {item.expectedExitTime || '-'}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button onClick={() => startEdit(item)} className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white">Edit</button>
+                      <button onClick={() => deleteStaff(item._id)} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white">Remove</button>
+                      <button onClick={() => loadAttendance(item._id)} className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">Attendance History</button>
+                    </div>
+                  </article>
                 ))}
-                {!attendanceLogs.length && <p className="text-sm text-slate-500">No attendance records yet.</p>}
+                {!filteredResidentStaff.length && <p className="text-sm text-slate-500">No staff matched your filters.</p>}
               </div>
             </section>
-          )}
+
+            {attendanceStaffId && (
+              <section className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+                <h3 className="text-lg font-semibold text-slate-900">Attendance History: {selectedAttendanceName}</h3>
+                <div className="classy-list-grid mt-3 space-y-2">
+                  {attendanceLogs.map((row) => (
+                    <div key={row._id} className="classy-list-card rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                      <p>Date: {row.date}</p>
+                      <p>Entry: {row.entryTime ? new Date(row.entryTime).toLocaleString() : '-'}</p>
+                      <p>Exit: {row.exitTime ? new Date(row.exitTime).toLocaleString() : '-'}</p>
+                      <p>Guard: {row.guardId?.name || '-'}</p>
+                    </div>
+                  ))}
+                  {!attendanceLogs.length && <p className="text-sm text-slate-500">No attendance records yet.</p>}
+                </div>
+              </section>
+            )}
+          </div>
         </>
       )}
 
@@ -422,7 +542,7 @@ function DomesticStaffPage() {
               <input
                 value={guardPhone}
                 onChange={(e) => setGuardPhone(e.target.value)}
-                placeholder="Staff Phone Number"
+                placeholder="Enter staff phone number"
                 disabled={otpCooldown > 0}
                 className="rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 disabled:opacity-70"
               />
@@ -436,7 +556,7 @@ function DomesticStaffPage() {
               <input
                 value={guardOtp}
                 onChange={(e) => setGuardOtp(e.target.value)}
-                placeholder="Enter OTP"
+                placeholder="Enter OTP code"
                 className="rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400"
               />
             </div>
@@ -492,11 +612,14 @@ function DomesticStaffPage() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <h3 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900"><FiClock /> Active Entries</h3>
-            <div className="mt-3 space-y-2">
+          <section className="classy-list-shell rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="classy-list-toolbar mb-3 flex flex-wrap items-center gap-2">
+              <h3 className="mr-auto inline-flex items-center gap-2 text-lg font-semibold text-slate-900"><FiClock /> Active Entries</h3>
+              <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{activeEntries.length} inside</span>
+            </div>
+            <div className="classy-list-grid mt-3 space-y-2">
               {activeEntries.map((row) => (
-                <div key={row._id} className="rounded-lg border border-slate-200 p-3">
+                <div key={row._id} className="classy-list-card rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="font-semibold text-slate-900">{row.staffId?.name || '-'}</p>
                   <p className="text-xs text-slate-500">Phone: {row.staffId?.phone || '-'}</p>
                   <p className="text-xs text-slate-500">Work: {row.staffId?.workType || '-'}</p>
@@ -531,6 +654,11 @@ function DomesticStaffPage() {
                   </div>
                   <p className="text-xs text-slate-500">Resident: {item.residentId?.name || '-'} | House: {item.houseNumber}</p>
                   <p className="text-xs text-slate-500"><FiPhone className="mr-1 inline" />{item.phone}</p>
+                  {item.photo ? (
+                    <a href={item.photo} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200">
+                      <FiImage size={11} /> View photo
+                    </a>
+                  ) : null}
                 </div>
               ))}
               {!staffList.length && <p className="text-sm text-slate-500">No staff records found.</p>}
@@ -559,3 +687,5 @@ function DomesticStaffPage() {
 }
 
 export default DomesticStaffPage;
+
+

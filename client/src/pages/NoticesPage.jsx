@@ -141,7 +141,7 @@ function NoticesPage() {
       </motion.section>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <AppCard className="p-5">
+        <AppCard className="classy-list-shell p-5">
           {canPickSociety && (
             <div className="mb-4 max-w-md">
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -171,7 +171,7 @@ function NoticesPage() {
           ) : notices.length === 0 ? (
             <EmptyState message="No notices available." />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/70 p-2">
               <table className="min-w-full border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -244,10 +244,10 @@ function NoticesPage() {
 
       {isAdmin && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <AppCard className="p-5">
+          <AppCard className="classy-list-shell p-5">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Alert History</h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Scheduled alert notices posted from notification control.</p>
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/70 p-2">
               <table className="min-w-full border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">

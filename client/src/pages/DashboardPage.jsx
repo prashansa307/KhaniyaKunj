@@ -1404,7 +1404,7 @@ function AdminDashboard() {
                   <input
                     value={aiInput}
                     onChange={(event) => setAiInput(event.target.value)}
-                    placeholder="Ask anything about your society..."
+                    placeholder="Ask about residents, visitors, bills, notices, or reports..."
                     className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
                   />
                   <button type="submit" disabled={aiSending || !aiInput.trim()} className="inline-flex items-center gap-1 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-60">
@@ -1431,3 +1431,4 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
+

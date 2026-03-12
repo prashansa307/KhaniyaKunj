@@ -16,6 +16,7 @@ import {
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import EditPopup from '../components/EditPopup.jsx';
 
 const RESIDENT_ROLE_OPTIONS = [
   { value: 'resident', label: 'Resident' },
@@ -62,7 +63,6 @@ function ResidentsPage() {
   const [blockFilter, setBlockFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [confirmDelete, setConfirmDelete] = useState({ open: false, id: '' });
-  const [showResidentList, setShowResidentList] = useState(false);
 
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -369,7 +369,7 @@ function ResidentsPage() {
         <div className="relative z-10 flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-700 dark:text-cyan-300">Resident Workspace</p>
-            <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Resident Control Center</h2>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Resident Directory & Unit Assignment</h2>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Create resident heads with live unit assignment and occupancy-safe onboarding.</p>
           </div>
           <button
@@ -476,7 +476,7 @@ function ResidentsPage() {
           className="rounded-3xl border border-slate-200 bg-white p-5 shadow-panel xl:col-span-2 dark:border-slate-800 dark:bg-slate-900"
         >
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{editingResidentId ? 'Update Resident' : 'Create Resident + Assign Unit'}</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Create Resident + Assign Unit</h3>
             <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-200">
               {canManage ? 'Editable' : 'Read Only'}
             </span>
@@ -487,9 +487,9 @@ function ResidentsPage() {
           ) : canManage ? (
             <form className="space-y-3" onSubmit={onSubmit}>
               <div className="grid gap-3">
-                <input name="name" value={form.name} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Resident Name" required />
-                <input type="email" name="email" value={form.email} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Resident Email" required />
-                <input name="phone" value={form.phone} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Phone (10 digits)" required />
+                <input name="name" value={form.name} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Enter resident name" required />
+                <input type="email" name="email" value={form.email} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Enter resident email address" required />
+                <input name="phone" value={form.phone} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Enter phone number (10 digits)" required />
                 <select name="role" value={form.role} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800">
                   {RESIDENT_ROLE_OPTIONS.map((item) => (
                     <option key={item.value} value={item.value}>{item.label}</option>
@@ -531,13 +531,8 @@ function ResidentsPage() {
 
               <div className="flex gap-2">
                 <button type="submit" disabled={!canSubmit} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-                  <FiUserPlus />{editingResidentId ? 'Update Resident' : 'Create Resident'}
+                  <FiUserPlus />Create Resident
                 </button>
-                {editingResidentId && (
-                  <button type="button" onClick={cancelEdit} className="rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
-                    Cancel
-                  </button>
-                )}
               </div>
             </form>
           ) : (
@@ -562,21 +557,59 @@ function ResidentsPage() {
             </div>
           </div>
         </motion.section>
+        <EditPopup open={Boolean(editingResidentId)} title="Edit Resident" onClose={cancelEdit} maxWidthClass="max-w-2xl">
+          {canManage ? (
+            <form className="space-y-3" onSubmit={onSubmit}>
+              <div className="grid gap-3">
+                <input name="name" value={form.name} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Enter resident name" required />
+                <input type="email" name="email" value={form.email} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Enter resident email address" required />
+                <input name="phone" value={form.phone} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Enter phone number (10 digits)" required />
+                <select name="role" value={form.role} onChange={onChange} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+                  {RESIDENT_ROLE_OPTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+                <input
+                  value={unitSearch}
+                  onChange={(e) => setUnitSearch(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  placeholder="Search available units"
+                />
+                <select
+                  name="unitId"
+                  value={form.unitId}
+                  onChange={onChange}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  required
+                >
+                  <option value="">Select available unit</option>
+                  {filteredUnits.map((unit) => {
+                    const label = `${unit.unitNumber || unit.flatNumber} | ${unit.wing || 'NA'} | ${unit.unitType || 'Other'} | ${String(unit.status || '').toUpperCase()}`;
+                    return (
+                      <option key={unit._id} value={unit._id}>{label}</option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={!canSubmit} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                  <FiUserPlus />Save Changes
+                </button>
+                <button type="button" onClick={cancelEdit} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : null}
+        </EditPopup>
 
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-slate-200 bg-white p-5 shadow-panel xl:col-span-3 dark:border-slate-800 dark:bg-slate-900"
+          className="classy-list-shell rounded-3xl border border-slate-200 bg-white p-5 shadow-panel xl:col-span-3 dark:border-slate-800 dark:bg-slate-900"
         >
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="classy-list-toolbar mb-4 flex flex-wrap items-center gap-2">
             <h2 className="mr-auto text-lg font-semibold text-slate-900 dark:text-white">Resident Directory</h2>
-            <button
-              type="button"
-              onClick={() => setShowResidentList((prev) => !prev)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-            >
-              {showResidentList ? 'Hide List' : 'Show List'}
-            </button>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
               <option value="newest">Newest</option>
               <option value="name-asc">Name A-Z</option>
@@ -584,21 +617,19 @@ function ResidentsPage() {
             </select>
           </div>
 
-          {!showResidentList ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">List hidden. Click "Show List" to view resident records.</p>
-          ) : residentLoading ? (
+          {residentLoading ? (
             <div className="space-y-2">
               <div className="h-20 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
               <div className="h-20 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
               <div className="h-20 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
             </div>
           ) : visibleResidents.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No residents found for current filters.</p>
+            <p className="classy-list-note mt-3 text-sm text-slate-500 dark:text-slate-400">No residents found for current filters.</p>
           ) : (
             <>
-              <ul className="mt-2 grid gap-3 md:grid-cols-2">
+              <ul className="classy-list-grid mt-2 grid gap-3 md:grid-cols-2">
                 {visibleResidents.map((resident) => (
-                  <li key={resident._id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-cyan-300 dark:border-slate-700 dark:bg-slate-800/50">
+                  <li key={resident._id} className="classy-list-card rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-cyan-300 dark:border-slate-700 dark:bg-slate-800/50">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="text-base font-semibold text-slate-900 dark:text-white">{resident.name}</h3>
@@ -680,3 +711,4 @@ function ResidentsPage() {
 }
 
 export default ResidentsPage;
+

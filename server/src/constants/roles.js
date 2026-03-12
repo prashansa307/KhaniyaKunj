@@ -31,6 +31,7 @@ const ALLOWED_MODULES_BY_ROLE = {
     'domesticStaff',
     'familyMembers',
     'polls',
+    'marketplace',
   ],
   [ROLES.ADMIN]: [
     'dashboard',
@@ -47,6 +48,7 @@ const ALLOWED_MODULES_BY_ROLE = {
     'domesticStaff',
     'familyMembers',
     'polls',
+    'marketplace',
   ],
   [ROLES.TENANT]: [
     'dashboard',
@@ -58,6 +60,7 @@ const ALLOWED_MODULES_BY_ROLE = {
     'domesticStaff',
     'familyMembers',
     'polls',
+    'marketplace',
   ],
   [ROLES.RESIDENT]: [
     'dashboard',
@@ -69,6 +72,7 @@ const ALLOWED_MODULES_BY_ROLE = {
     'domesticStaff',
     'familyMembers',
     'polls',
+    'marketplace',
   ],
   [ROLES.OWNER]: [
     'dashboard',
@@ -80,6 +84,7 @@ const ALLOWED_MODULES_BY_ROLE = {
     'domesticStaff',
     'familyMembers',
     'polls',
+    'marketplace',
   ],
   [ROLES.COMMITTEE]: [
     'dashboard',
@@ -93,6 +98,7 @@ const ALLOWED_MODULES_BY_ROLE = {
     'lostFound',
     'familyMembers',
     'polls',
+    'marketplace',
   ],
   [ROLES.GUARD]: [
     'serviceRequests',

@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { FiBell, FiClock, FiGlobe, FiMoon, FiSave, FiShield, FiUser } from 'react-icons/fi';
+import { FiBell, FiClock, FiGlobe, FiImage, FiMoon, FiSave, FiShield, FiUploadCloud, FiUser } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { readImageAsDataUrl } from '../utils/imageUpload.js';
 
 function formatRelative(dateValue) {
   if (!dateValue) return '-';
@@ -81,6 +82,17 @@ function MyProfilePage() {
 
   const userName = useMemo(() => profile?.name || 'Resident User', [profile]);
 
+  async function uploadProfileImage(file) {
+    if (!file) return;
+    try {
+      const imageDataUrl = await readImageAsDataUrl(file);
+      setForm((prev) => ({ ...prev, profileImageUrl: imageDataUrl }));
+      showToast('Profile image attached successfully.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to attach profile image.', 'error');
+    }
+  }
+
   async function onSubmit(event) {
     event.preventDefault();
     try {
@@ -114,9 +126,15 @@ function MyProfilePage() {
         className="rounded-3xl border border-slate-200 bg-white p-6 shadow-panel dark:border-slate-800 dark:bg-slate-900"
       >
         <div className="flex items-center gap-4">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-100 text-xl font-bold text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-200">
-            {userName[0]?.toUpperCase() || 'R'}
-          </div>
+          {form.profileImageUrl ? (
+            <a href={form.profileImageUrl} target="_blank" rel="noreferrer" className="inline-flex h-14 w-14 overflow-hidden rounded-full border border-slate-200">
+              <img src={form.profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
+            </a>
+          ) : (
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-100 text-xl font-bold text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-200">
+              {userName[0]?.toUpperCase() || 'R'}
+            </div>
+          )}
           <div>
             <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">{userName}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">{profile?.email}</p>
@@ -135,45 +153,55 @@ function MyProfilePage() {
             <input
               value={form.phone}
               onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-              placeholder="Phone"
+              placeholder="Enter phone number"
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
             <input
               value={form.emergencyContact}
               onChange={(e) => setForm((prev) => ({ ...prev, emergencyContact: e.target.value }))}
-              placeholder="Emergency contact"
+              placeholder="Enter emergency contact number"
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
             <input
               value={form.profileImageUrl}
               onChange={(e) => setForm((prev) => ({ ...prev, profileImageUrl: e.target.value }))}
-              placeholder="Profile image URL"
+              placeholder="Profile image URL (optional)"
               className="md:col-span-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
+            <label className="md:col-span-2 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              <FiUploadCloud />
+              Upload profile image
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadProfileImage(e.target.files?.[0])} />
+            </label>
+            {form.profileImageUrl ? (
+              <a href={form.profileImageUrl} target="_blank" rel="noreferrer" className="md:col-span-2 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200">
+                <FiImage size={12} /> View current profile image
+              </a>
+            ) : null}
             <input
               value={form.languagePreference}
               onChange={(e) => setForm((prev) => ({ ...prev, languagePreference: e.target.value }))}
-              placeholder="Language preference (en-US)"
+              placeholder="Enter language preference (e.g. en-US)"
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
             <input
               value={form.timezone}
               onChange={(e) => setForm((prev) => ({ ...prev, timezone: e.target.value }))}
-              placeholder="Timezone (UTC)"
+              placeholder="Enter timezone (e.g. Asia/Kolkata)"
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
             <input
               type="password"
               value={form.currentPassword}
               onChange={(e) => setForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
-              placeholder="Current password"
+              placeholder="Enter current password"
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
             <input
               type="password"
               value={form.newPassword}
               onChange={(e) => setForm((prev) => ({ ...prev, newPassword: e.target.value }))}
-              placeholder="New password"
+              placeholder="Enter new password"
               className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
 
@@ -293,3 +321,4 @@ function MyProfilePage() {
 }
 
 export default MyProfilePage;
+

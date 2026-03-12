@@ -546,6 +546,27 @@ async function getResidentVisitors(req, res) {
   }
 }
 
+async function deleteVisitorLog(req, res) {
+  try {
+    const societyId = await scopedSocietyId(req);
+    const filter = { _id: req.params.id };
+    if (societyId) filter.societyId = societyId;
+
+    const deleted = await Visitor.findOneAndDelete(filter);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Visitor log not found.', data: null });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Visitor log deleted successfully.',
+      data: null,
+    });
+  } catch {
+    return res.status(400).json({ success: false, message: 'Failed to delete visitor log.', data: null });
+  }
+}
+
 module.exports = {
   preApproveVisitor,
   createVisitorRequest,
@@ -559,4 +580,5 @@ module.exports = {
   getVisitorLogs,
   getVisitorAnalytics,
   getResidentVisitors,
+  deleteVisitorLog,
 };

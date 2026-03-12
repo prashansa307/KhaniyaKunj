@@ -137,7 +137,7 @@ function PaymentsPage() {
         <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700 dark:text-emerald-300">Collections</p>
-            <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Payment Intelligence Desk</h2>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Payment Collection & Ledger</h2>
             <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
               Track bill collections, payment health, and pending exposure with role-based actions.
             </p>
